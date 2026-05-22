@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: daurin-backend
+    env: node
+    branch: main
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    autoDeploy: true

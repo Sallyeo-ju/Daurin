@@ -37,6 +37,7 @@ dependencies:
   http: ^1.6.0
   image_picker: ^0.8.7+4
   geolocator: ^13.0.2
+  geocoding: ^3.0.0
   shared_preferences: ^2.5.5
   google_sign_in: ^7.2.0
 

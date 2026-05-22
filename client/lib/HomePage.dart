@@ -2,11 +2,22 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'LoginPage.dart';
 import 'api_client.dart';
 import 'AccountPage.dart';
+
+const List<String> _standardLocations = [
+  'Jabodetabek',
+  'West Jakarta',
+  'East Jakarta',
+  'Central Jakarta',
+  'South Jakarta',
+];
+
+const List<String> _itemCategories = ['Recycle', 'Second hand', 'Other'];
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -73,6 +84,16 @@ class _HomePageState extends State<HomePage> {
       _detectedLocationText =
           prefs.getString('detected_location_text') ?? _detectedLocationText;
     });
+  }
+
+  Future<void> _setDarkMode(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('dark_mode', value);
+    if (!mounted) return;
+    setState(() {
+      _darkMode = value;
+    });
+    _showMessage(value ? 'Dark mode aktif.' : 'Light mode aktif.');
   }
 
   @override
@@ -195,6 +216,88 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _showAboutUsDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('About Us'),
+        content: const Text(
+          'Daurin adalah aplikasi untuk jual beli dan pengelolaan barang ramah lingkungan, barang bekas, dan item promo dalam satu tempat.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatLocationLabel(Placemark placemark) {
+    final parts = <String>[
+      placemark.subLocality ?? '',
+      placemark.subAdministrativeArea ?? '',
+      placemark.locality ?? '',
+      placemark.administrativeArea ?? '',
+    ].where((part) => part.trim().isNotEmpty).toList();
+
+    final uniqueParts = <String>[];
+    for (final part in parts) {
+      final normalized = part.trim();
+      if (uniqueParts.isEmpty || uniqueParts.last != normalized) {
+        if (!uniqueParts.contains(normalized)) {
+          uniqueParts.add(normalized);
+        }
+      }
+    }
+
+    if (uniqueParts.isEmpty) {
+      final country = placemark.country?.trim();
+      return country != null && country.isNotEmpty
+          ? country
+          : 'Lokasi terdeteksi';
+    }
+
+    return uniqueParts.take(3).join(', ');
+  }
+
+  Future<void> _showFaqDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('FAQ'),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Q: Cara upload barang?'),
+              SizedBox(height: 6),
+              Text('A: Tekan tombol + di halaman Home, isi data lalu simpan.'),
+              SizedBox(height: 12),
+              Text('Q: Cara aktifkan lokasi?'),
+              SizedBox(height: 6),
+              Text('A: Buka menu akun, lalu pilih Detect Location.'),
+              SizedBox(height: 12),
+              Text('Q: Apa fungsi dark mode?'),
+              SizedBox(height: 6),
+              Text('A: Mengubah tampilan aplikasi ke mode gelap atau terang.'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _detectCurrentLocation() async {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -221,8 +324,21 @@ class _HomePageState extends State<HomePage> {
           accuracy: LocationAccuracy.high,
         ),
       );
-      final locationText =
-          'Lat ${position.latitude.toStringAsFixed(6)}, Lng ${position.longitude.toStringAsFixed(6)}';
+      String locationText = 'Lokasi terdeteksi';
+
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          locationText = _formatLocationLabel(placemarks.first);
+        }
+      } catch (_) {
+        locationText = 'Lokasi terdeteksi';
+      }
+
+      final previousLocationText = _detectedLocationText;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('location_status', 'Aktif');
       await prefs.setString('detected_location_text', locationText);
@@ -233,7 +349,10 @@ class _HomePageState extends State<HomePage> {
         _detectedLocationText = locationText;
         _accountAddressController.text = locationText;
       });
-      _showMessage('Lokasi berhasil dideteksi.');
+
+      if (previousLocationText != locationText) {
+        _showMessage('Lokasi berhasil dideteksi: $locationText');
+      }
     } catch (error) {
       _showMessage('Gagal detect lokasi: $error');
     }
@@ -299,13 +418,15 @@ class _HomePageState extends State<HomePage> {
     final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController();
     final priceController = TextEditingController();
-    final locationController = TextEditingController();
+    final customLocationController = TextEditingController();
     final descriptionController = TextEditingController();
     final discountPercentController = TextEditingController();
+    final customCategoryController = TextEditingController();
     final imagePicker = ImagePicker();
     String? selectedPhotoPath;
     String? selectedPhotoName;
     String selectedCategory = 'Recycle';
+    String selectedLocation = _standardLocations.first;
 
     await showDialog<void>(
       context: context,
@@ -349,38 +470,97 @@ class _HomePageState extends State<HomePage> {
                         },
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
-                        controller: locationController,
-                        decoration: const InputDecoration(labelText: 'Lokasi'),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Lokasi wajib diisi';
-                          }
-                          return null;
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedLocation,
+                        items: [..._standardLocations, 'Other']
+                            .map(
+                              (location) => DropdownMenuItem(
+                                value: location,
+                                child: Text(location),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedLocation =
+                                value ?? _standardLocations.first;
+                          });
                         },
+                        decoration: const InputDecoration(labelText: 'Lokasi'),
+                      ),
+                      if (selectedLocation == 'Other') ...[
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: customLocationController,
+                          decoration: const InputDecoration(
+                            labelText: 'Isi lokasi sendiri',
+                            hintText: 'Contoh: Bandung, Surabaya, Bekasi',
+                          ),
+                          validator: (value) {
+                            if (selectedLocation != 'Other') {
+                              return null;
+                            }
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Lokasi custom wajib diisi';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () {
+                            setDialogState(() {
+                              selectedLocation = 'Other';
+                              customLocationController.text =
+                                  _detectedLocationText;
+                            });
+                          },
+                          icon: const Icon(Icons.location_on_outlined),
+                          label: const Text('Pakai lokasi terdeteksi'),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: selectedCategory,
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Recycle',
-                            child: Text('Recycle'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Second hand',
-                            child: Text('Second hand'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Other',
-                            child: Text('Other'),
-                          ),
-                        ],
-                        onChanged: (v) => selectedCategory = v ?? 'Recycle',
+                        items: _itemCategories
+                            .map(
+                              (category) => DropdownMenuItem(
+                                value: category,
+                                child: Text(category),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) {
+                          setDialogState(() {
+                            selectedCategory = v ?? 'Recycle';
+                          });
+                        },
                         decoration: const InputDecoration(
                           labelText: 'Category',
                         ),
                       ),
+                      if (selectedCategory == 'Other') ...[
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: customCategoryController,
+                          decoration: const InputDecoration(
+                            labelText: 'Tulis category sendiri',
+                            hintText: 'Contoh: Elektronik, Fashion, Furniture',
+                          ),
+                          validator: (value) {
+                            if (selectedCategory != 'Other') {
+                              return null;
+                            }
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Category custom wajib diisi';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: descriptionController,
@@ -493,6 +673,12 @@ class _HomePageState extends State<HomePage> {
                           if (!formKey.currentState!.validate()) {
                             return;
                           }
+                          final locationValue = selectedLocation == 'Other'
+                              ? customLocationController.text.trim()
+                              : selectedLocation;
+                          final categoryValue = selectedCategory == 'Other'
+                              ? customCategoryController.text.trim()
+                              : selectedCategory;
                           final discountText = discountPercentController.text
                               .trim();
                           final discountPercentValue = discountText.isEmpty
@@ -511,10 +697,10 @@ class _HomePageState extends State<HomePage> {
                                   fields: {
                                     'name': nameController.text.trim(),
                                     'price': priceController.text.trim(),
-                                    'location': locationController.text.trim(),
+                                    'location': locationValue,
                                     'discountPercent': discountPercentValue
                                         .toString(),
-                                    'category': selectedCategory,
+                                    'category': categoryValue,
                                     'description': descriptionController.text
                                         .trim(),
                                   },
@@ -582,7 +768,7 @@ class _HomePageState extends State<HomePage> {
       SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: _buildHomePage(), 
+          child: _buildHomePage(),
         ),
       ),
 
@@ -607,12 +793,17 @@ class _HomePageState extends State<HomePage> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: AccountPage(
-            username: _accountUsernameController.text.isNotEmpty 
-                ? _accountUsernameController.text 
+            username: _accountUsernameController.text.isNotEmpty
+                ? _accountUsernameController.text
                 : 'User Baru',
-            email: _accountEmailController.text.isNotEmpty 
-                ? _accountEmailController.text 
+            email: _accountEmailController.text.isNotEmpty
+                ? _accountEmailController.text
                 : 'Email belum diisi',
+            isDarkMode: _darkMode,
+            onToggleDarkMode: _setDarkMode,
+            locationStatus: _locationStatus,
+            locationText: _detectedLocationText,
+            onDetectLocation: _detectCurrentLocation,
             onLogout: () {
               Navigator.pushReplacement(
                 context,
@@ -625,11 +816,12 @@ class _HomePageState extends State<HomePage> {
             onChangePassword: () {
               _showMessage('Fitur ganti password akan datang.');
             },
+            onAboutUs: _showAboutUsDialog,
+            onFaq: _showFaqDialog,
           ),
         ),
       ),
     ];
-
     final titles = ['Daurin', 'Promo', 'Keranjang', 'Akun'];
 
     return Scaffold(
@@ -643,9 +835,41 @@ class _HomePageState extends State<HomePage> {
         automaticallyImplyLeading: false,
         actions: _selectedIndex == 0
             ? [
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: _showFilterSheet,
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: _detectCurrentLocation,
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 150),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.my_location, size: 16),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              _locationStatus == 'Aktif'
+                                  ? _detectedLocationText
+                                  : 'Detect lokasi',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ]
             : null,
@@ -769,13 +993,6 @@ class _HomePageState extends State<HomePage> {
   String? _priceSort; // 'asc' or 'desc'
 
   void _showFilterSheet() {
-    final areaOptions = [
-      'Jabodetabek',
-      'West Jakarta',
-      'East Jakarta',
-      'Central Jakarta',
-      'South Jakarta',
-    ];
     // Fixed category choices per spec
     final categories = ['All', 'Recycle', 'Second hand'];
 
@@ -809,7 +1026,7 @@ class _HomePageState extends State<HomePage> {
                   const Text('Area'),
                   Wrap(
                     spacing: 8,
-                    children: ([...areaOptions, 'Other'])
+                    children: ([..._standardLocations, 'Other'])
                         .map(
                           (a) => ChoiceChip(
                             label: Text(a),
@@ -966,14 +1183,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   bool _isStandardArea(String area) {
-    final standard = [
-      'Jabodetabek',
-      'West Jakarta',
-      'East Jakarta',
-      'Central Jakarta',
-      'South Jakarta',
-    ];
-    return standard.contains(area);
+    return _standardLocations.contains(area);
   }
 
   List<_Item> get _filteredItems {
@@ -1050,6 +1260,86 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+  Widget _buildHomePage() {
+    final visibleItems = _filteredItems;
+
+    return RefreshIndicator(
+      onRefresh: _loadItems,
+      color: Colors.green.shade700,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          _HeaderBar(
+            searchController: _searchController,
+            onFilterPressed: _showFilterSheet,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Item Terbaru',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '${visibleItems.length} hasil',
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (visibleItems.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.black12),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.search_off, size: 48, color: Colors.black38),
+                  SizedBox(height: 12),
+                  Text(
+                    'Belum ada item yang cocok.',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Coba ubah kata kunci atau filter untuk menemukan item lain.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                ],
+              ),
+            )
+          else
+            GridView.builder(
+              itemCount: visibleItems.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 12),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                mainAxisExtent: 310,
+              ),
+              itemBuilder: (context, index) =>
+                  _ItemCard(item: visibleItems[index], onAddToCart: _addToCart),
+            ),
+          const SizedBox(height: 96),
+        ],
+      ),
+    );
+  }
+}
 
 class _HeaderBar extends StatelessWidget {
   const _HeaderBar({
@@ -1133,170 +1423,171 @@ class _ItemCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.black12),
         ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Badges row at top left - compact
-          if (item.isPromoted ||
-              (item.discountPercent != null && item.discountPercent! > 0))
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                if (item.isPromoted)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const Text(
-                      'PROMO',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepOrange,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Badges row at top left - compact
+            if (item.isPromoted ||
+                (item.discountPercent != null && item.discountPercent! > 0))
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  if (item.isPromoted)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade100,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'PROMO',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepOrange,
+                        ),
                       ),
                     ),
-                  ),
-                if (item.discountPercent != null && item.discountPercent! > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade100,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      '${item.discountPercent}% OFF',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green.shade800,
+                  if (item.discountPercent != null && item.discountPercent! > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${item.discountPercent}% OFF',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade800,
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-          if (item.isPromoted ||
-              (item.discountPercent != null && item.discountPercent! > 0))
-            const SizedBox(height: 8),
-          if (item.imageUrl != null && item.imageUrl!.isNotEmpty) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                buildApiUrl(item.imageUrl!),
-                width: double.infinity,
-                height: 120,
-                fit: BoxFit.cover,
+                ],
               ),
-            ),
-            const SizedBox(height: 8),
-          ],
-          Text(
-            item.name,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-          const SizedBox(height: 6),
-          if (item.discountedPrice != null &&
-              item.discountedPrice! < item.price) ...[
-            Text(
-              'Rp ${item.price}',
-              style: const TextStyle(
-                color: Colors.black54,
-                fontWeight: FontWeight.w500,
-                decoration: TextDecoration.lineThrough,
-                fontSize: 12,
+            if (item.isPromoted ||
+                (item.discountPercent != null && item.discountPercent! > 0))
+              const SizedBox(height: 8),
+            if (item.imageUrl != null && item.imageUrl!.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  buildApiUrl(item.imageUrl!),
+                  width: double.infinity,
+                  height: 120,
+                  fit: BoxFit.cover,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
+              const SizedBox(height: 8),
+            ],
             Text(
-              'Rp ${item.discountedPrice}',
-              style: TextStyle(
-                color: Colors.green.shade700,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
-          ] else ...[
-            Text(
-              'Rp ${item.price}',
-              style: TextStyle(
-                color: Colors.green.shade700,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-          ],
-          const SizedBox(height: 3),
-          Text(
-            item.location,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.black54, fontSize: 12),
-          ),
-          if (item.category != null && item.category!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              item.category!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.green.shade800,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-          if (item.description != null && item.description!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              item.description!,
+              item.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.black54, fontSize: 12),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
-          ],
-          if (item.promoNote != null && item.promoNote!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              item.promoNote!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.deepOrange,
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
+            const SizedBox(height: 6),
+            if (item.discountedPrice != null &&
+                item.discountedPrice! < item.price) ...[
+              Text(
+                'Rp ${item.price}',
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w500,
+                  decoration: TextDecoration.lineThrough,
+                  fontSize: 12,
+                ),
               ),
-            ),
-          ],
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              ElevatedButton.icon(
-                onPressed: onAddToCart == null
-                    ? null
-                    : () => onAddToCart!(item),
-                icon: const Icon(Icons.add_shopping_cart, size: 16),
-                label: const Text('Add'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade700,
-                  minimumSize: const Size(72, 36),
+              const SizedBox(height: 2),
+              Text(
+                'Rp ${item.discountedPrice}',
+                style: TextStyle(
+                  color: Colors.green.shade700,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ] else ...[
+              Text(
+                'Rp ${item.price}',
+                style: TextStyle(
+                  color: Colors.green.shade700,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
                 ),
               ),
             ],
-          ),
-        ],
+            const SizedBox(height: 3),
+            Text(
+              item.location,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.black54, fontSize: 12),
+            ),
+            if (item.category != null && item.category!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                item.category!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.green.shade800,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            if (item.description != null && item.description!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                item.description!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.black54, fontSize: 12),
+              ),
+            ],
+            if (item.promoNote != null && item.promoNote!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                item.promoNote!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.deepOrange,
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+            const Spacer(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: onAddToCart == null
+                      ? null
+                      : () => onAddToCart!(item),
+                  icon: const Icon(Icons.add_shopping_cart, size: 16),
+                  label: const Text('Add'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade700,
+                    minimumSize: const Size(72, 36),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ));
+    );
   }
 
   void _showDetail(BuildContext context) {
@@ -1334,7 +1625,13 @@ class _ItemCard extends StatelessWidget {
               Text('Lokasi: ${item.location}'),
               if (item.category != null && item.category!.isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text('Category: ${item.category!}', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.green.shade800)),
+                Text(
+                  'Category: ${item.category!}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green.shade800,
+                  ),
+                ),
               ],
               if (item.description != null && item.description!.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -1344,7 +1641,10 @@ class _ItemCard extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
           FilledButton.icon(
             onPressed: onAddToCart == null
                 ? null
