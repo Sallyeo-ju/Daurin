@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'CheckoutPage.dart';
 
 class PaymentPage extends StatefulWidget {
   const PaymentPage({
@@ -7,12 +8,16 @@ class PaymentPage extends StatefulWidget {
     required this.discount,
     required this.total,
     this.voucherCode,
+    this.cartItems = const [],
+    this.userAddress = '',
   });
 
   final int subtotal;
   final int discount;
   final int total;
   final String? voucherCode;
+  final List<Map<String, dynamic>> cartItems;
+  final String userAddress;
 
   @override
   State<PaymentPage> createState() => _PaymentPageState();
@@ -50,6 +55,26 @@ class _PaymentPageState extends State<PaymentPage> {
     }
 
     Navigator.of(context).pop(true);
+  }
+
+  void _goToCheckout() async {
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => CheckoutPage(
+          cartItems: widget.cartItems,
+          subtotal: widget.subtotal,
+          discount: widget.discount,
+          total: widget.total,
+          voucherCode: widget.voucherCode,
+          userAddress: widget.userAddress,
+        ),
+      ),
+    );
+
+    if (result != null && result['confirmed'] == true) {
+      if (!mounted) return;
+      _submitPayment();
+    }
   }
 
   @override
@@ -175,6 +200,11 @@ class _PaymentPageState extends State<PaymentPage> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
+                    onPressed: _goToCheckout,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.green.shade700,
+                    ),
+                    child: const Text('Lanjut ke Checkout'),
                     onPressed: _submitPayment,
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.green.shade700,

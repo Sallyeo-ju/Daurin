@@ -349,6 +349,16 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
+    // Buat list item untuk checkout
+    final List<Map<String, dynamic>> cartItems = _cart
+        .map((cartItem) => {
+              'name': cartItem.item.name,
+              'quantity': cartItem.quantity,
+              'price': cartItem.item.price,
+              'subtotal': cartItem.item.price * cartItem.quantity,
+            })
+        .toList();
+
     final paid = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => PaymentPage(
@@ -356,6 +366,8 @@ class _HomePageState extends State<HomePage> {
           discount: _discountAmount,
           total: _finalCartTotal,
           voucherCode: _appliedVoucherCode,
+          cartItems: cartItems,
+          userAddress: _accountAddressController.text,
         ),
       ),
     );
