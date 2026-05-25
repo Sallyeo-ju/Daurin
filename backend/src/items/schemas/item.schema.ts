@@ -32,6 +32,9 @@ export class Item {
   @Prop({ min: 0 })
   discountedPrice?: number;
 
+  @Prop({ default: 1, min: 0 })
+  quantity!: number;
+
   @Prop()
   promoNote?: string;
 

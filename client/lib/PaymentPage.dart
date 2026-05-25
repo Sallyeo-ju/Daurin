@@ -10,6 +10,7 @@ class PaymentPage extends StatefulWidget {
     this.voucherCode,
     this.cartItems = const [],
     this.userAddress = '',
+    this.qrisImageAssetPath = 'assets/images/qris.png',
   });
 
   final int subtotal;
@@ -18,42 +19,18 @@ class PaymentPage extends StatefulWidget {
   final String? voucherCode;
   final List<Map<String, dynamic>> cartItems;
   final String userAddress;
+  final String qrisImageAssetPath;
 
   @override
   State<PaymentPage> createState() => _PaymentPageState();
 }
 
 class _PaymentPageState extends State<PaymentPage> {
-  final TextEditingController _cardNumberController = TextEditingController();
-  final TextEditingController _cardHolderController = TextEditingController();
-  final TextEditingController _expiryController = TextEditingController();
-  final TextEditingController _cvvController = TextEditingController();
-  String _selectedMethod = 'Kartu Kredit/Debit';
+  String _selectedMethod = 'COD';
 
-  @override
-  void dispose() {
-    _cardNumberController.dispose();
-    _cardHolderController.dispose();
-    _expiryController.dispose();
-    _cvvController.dispose();
-    super.dispose();
-  }
-
-  bool get _needsCardInfo => _selectedMethod == 'Kartu Kredit/Debit';
+  bool get _isQris => _selectedMethod == 'QRIS';
 
   void _submitPayment() {
-    if (_needsCardInfo) {
-      if (_cardNumberController.text.trim().isEmpty ||
-          _cardHolderController.text.trim().isEmpty ||
-          _expiryController.text.trim().isEmpty ||
-          _cvvController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lengkapi data kartu sebelum melanjutkan.')),
-        );
-        return;
-      }
-    }
-
     Navigator.of(context).pop(true);
   }
 
@@ -67,6 +44,8 @@ class _PaymentPageState extends State<PaymentPage> {
           total: widget.total,
           voucherCode: widget.voucherCode,
           userAddress: widget.userAddress,
+          paymentMethod: _selectedMethod,
+          qrisImageAssetPath: widget.qrisImageAssetPath,
         ),
       ),
     );
@@ -111,7 +90,11 @@ class _PaymentPageState extends State<PaymentPage> {
                         const SizedBox(height: 8),
                         const Divider(),
                         const SizedBox(height: 8),
-                        _buildSummaryRow('Total bayar', widget.total, isBold: true),
+                        _buildSummaryRow(
+                          'Total bayar',
+                          widget.total,
+                          isBold: true,
+                        ),
                         if (widget.voucherCode != null) ...[
                           const SizedBox(height: 12),
                           Text(
@@ -132,11 +115,7 @@ class _PaymentPageState extends State<PaymentPage> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: [
-                    'Kartu Kredit/Debit',
-                    'GoPay',
-                    'Transfer Bank',
-                  ].map((method) {
+                  children: const ['COD', 'QRIS'].map((method) {
                     final isSelected = _selectedMethod == method;
                     return ChoiceChip(
                       label: Text(method),
@@ -150,50 +129,65 @@ class _PaymentPageState extends State<PaymentPage> {
                   }).toList(),
                 ),
                 const SizedBox(height: 20),
-                if (_needsCardInfo) ...[
-                  TextField(
-                    controller: _cardNumberController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nomor kartu',
+                if (_isQris) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.green.shade100),
                     ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _cardHolderController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nama pemegang kartu',
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Scan QRIS di bawah ini',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: widget.qrisImageAssetPath.isNotEmpty
+                              ? Image.asset(
+                                  widget.qrisImageAssetPath,
+                                  fit: BoxFit.contain,
+                                  height: 260,
+                                  width: double.infinity,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      height: 260,
+                                      width: double.infinity,
+                                      color: Colors.white,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        'Isi gambar QRIS di:\n${widget.qrisImageAssetPath}',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Container(
+                                  height: 260,
+                                  width: double.infinity,
+                                  color: Colors.white,
+                                  alignment: Alignment.center,
+                                  child: const Text(
+                                    'Isi gambar QRIS di qrisImageAssetPath',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.black54),
+                                  ),
+                                ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _expiryController,
-                          decoration: const InputDecoration(
-                            labelText: 'Exp (MM/YY)',
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _cvvController,
-                          decoration: const InputDecoration(
-                            labelText: 'CVV',
-                          ),
-                          keyboardType: TextInputType.number,
-                          obscureText: true,
-                        ),
-                      ),
-                    ],
                   ),
                 ] else ...[
-                  Text(
-                    'Lanjutkan saldo pembayaran menggunakan $_selectedMethod.',
-                    style: const TextStyle(color: Colors.black54),
+                  const Text(
+                    'COD dipilih. Kurir akan menerima pembayaran saat barang diterima.',
+                    style: TextStyle(color: Colors.black54),
                   ),
                 ],
                 const SizedBox(height: 24),
@@ -204,12 +198,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.green.shade700,
                     ),
-                    child: const Text('Lanjut ke Checkout'),
-                    onPressed: _submitPayment,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green.shade700,
-                    ),
-                    child: const Text('Bayar Sekarang'),
+                    child: const Text('Lanjut ke Konfirmasi'),
                   ),
                 ),
               ],

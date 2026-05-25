@@ -11,6 +11,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { VerifyPinDto } from './dto/verify-pin.dto';
 import { User, UserDocument } from './schemas/user.schema';
 
 @Injectable()
@@ -42,6 +43,7 @@ export class AuthService {
         ...registerDto,
         email: normalizedEmail,
         username: normalizedUsername,
+        pin: registerDto.pin,
       });
 
       return {
@@ -94,6 +96,35 @@ export class AuthService {
           email: user.email,
           phoneNumber: user.phoneNumber,
         },
+      };
+    } catch (error) {
+      throw this.mapDbError(error);
+    }
+  }
+
+  async verifyPin(verifyPinDto: VerifyPinDto) {
+    try {
+      const normalizedIdentifier = verifyPinDto.identifier.trim().toLowerCase();
+      const user = await this.userModel
+        .findOne({
+          $or: [
+            { email: normalizedIdentifier },
+            { username: normalizedIdentifier },
+          ],
+        })
+        .exec();
+
+      if (!user) {
+        throw new NotFoundException('Account not found');
+      }
+
+      if (user.pin !== verifyPinDto.pin) {
+        throw new UnauthorizedException('Wrong PIN');
+      }
+
+      return {
+        message: 'PIN verified',
+        verified: true,
       };
     } catch (error) {
       throw this.mapDbError(error);

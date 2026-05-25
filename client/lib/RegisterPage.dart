@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'api_client.dart';
+import 'pin_gate.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key, this.initialEmail = ''});
@@ -20,9 +22,13 @@ class _RegisterPageState extends State<RegisterPage> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _pinController = TextEditingController();
+  final _confirmPinController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _obscurePin = true;
+  bool _obscureConfirmPin = true;
 
   Future<void> _showStatusDialog({
     required String title,
@@ -86,6 +92,8 @@ class _RegisterPageState extends State<RegisterPage> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _pinController.dispose();
+    _confirmPinController.dispose();
     super.dispose();
   }
 
@@ -106,6 +114,7 @@ class _RegisterPageState extends State<RegisterPage> {
           'email': _emailController.text.trim(),
           'phoneNumber': _phoneController.text.trim(),
           'password': _passwordController.text,
+          'pin': _pinController.text.trim(),
         }),
       );
 
@@ -114,6 +123,11 @@ class _RegisterPageState extends State<RegisterPage> {
       }
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        await PinGate.savePinForAliases(
+          email: _emailController.text.trim(),
+          username: _usernameController.text.trim(),
+          pin: _pinController.text.trim(),
+        );
         await _showStatusDialog(
           title: 'Register Berhasil',
           message: 'Akun berhasil dibuat, silakan login.',
@@ -287,6 +301,82 @@ class _RegisterPageState extends State<RegisterPage> {
                     }
                     if (value != _passwordController.text) {
                       return 'Password tidak sama';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _pinController,
+                  obscureText: _obscurePin,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(6),
+                  ],
+                  decoration:
+                      const InputDecoration(
+                        labelText: 'PIN 6 digit',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.pin),
+                      ).copyWith(
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePin
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePin = !_obscurePin;
+                            });
+                          },
+                        ),
+                      ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'PIN wajib diisi';
+                    }
+                    if (!RegExp(r'^\d{6}$').hasMatch(value.trim())) {
+                      return 'PIN harus 6 angka';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _confirmPinController,
+                  obscureText: _obscureConfirmPin,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(6),
+                  ],
+                  decoration:
+                      const InputDecoration(
+                        labelText: 'Konfirmasi PIN',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.pin_outlined),
+                      ).copyWith(
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureConfirmPin
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscureConfirmPin = !_obscureConfirmPin;
+                            });
+                          },
+                        ),
+                      ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Konfirmasi PIN wajib diisi';
+                    }
+                    if (value.trim() != _pinController.text.trim()) {
+                      return 'PIN tidak sama';
                     }
                     return null;
                   },

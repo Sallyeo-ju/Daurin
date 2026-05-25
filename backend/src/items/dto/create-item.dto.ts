@@ -53,6 +53,12 @@ export class CreateItemDto {
   @Min(0)
   discountedPrice?: number;
 
+  @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  quantity?: number;
+
   @IsOptional()
   @IsString()
   promoNote?: string;

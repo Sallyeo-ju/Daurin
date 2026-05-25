@@ -41,9 +41,9 @@ String buildApiUrl(String path) {
     return path;
   }
   if (path.startsWith('/')) {
-    return '${primaryApiHost()}$path';
+    return '${_mediaApiHost()}$path';
   }
-  return '${primaryApiHost()}/$path';
+  return '${_mediaApiHost()}/$path';
 }
 
 Future<http.Response> postJsonWithFallback({
@@ -146,4 +146,20 @@ List<String> _candidateHosts() {
   }
 
   return <String>[_localhostHost, _lanHost];
+}
+
+String _mediaApiHost() {
+  if (_configuredBaseUrl.isNotEmpty) {
+    return _configuredBaseUrl;
+  }
+
+  if (kIsWeb) {
+    return _localhostHost;
+  }
+
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    return _androidUsbReverseHost;
+  }
+
+  return primaryApiHost();
 }

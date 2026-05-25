@@ -6,8 +6,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'api_client.dart';
 import 'HomePage.dart';
 import 'RegisterPage.dart';
+import 'pin_gate.dart';
 
-final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -20,9 +21,16 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
+  late final Future<void> _googleSignInInit = _googleSignIn.initialize();
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_googleSignInInit);
+  }
 
   Future<void> _showStatusDialog({
     required String title,
@@ -103,6 +111,18 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        final Map<String, dynamic>? data =
+            jsonDecode(response.body) as Map<String, dynamic>?;
+        final user = data?['user'];
+        if (user is Map<String, dynamic>) {
+          final email = user['email']?.toString() ?? '';
+          final username = user['username']?.toString() ?? '';
+          if (email.isNotEmpty) {
+            await PinGate.setActiveAccountIdentifier(email);
+          } else if (username.isNotEmpty) {
+            await PinGate.setActiveAccountIdentifier(username);
+          }
+        }
         await _showStatusDialog(
           title: 'Login Berhasil',
           message: 'Selamat datang di Daurin.',
@@ -184,16 +204,12 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isGoogleLoading = true);
 
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      await _googleSignInInit;
+      final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();
 
       if (!mounted) return;
 
-      if (googleUser == null) {
-        return;
-      }
-
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
 
       final response = await postJsonWithFallback(
         path: '/auth/google',
@@ -208,6 +224,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        await PinGate.setActiveAccountIdentifier(googleUser.email);
         await _showStatusDialog(
           title: 'Login Berhasil',
           message:

@@ -37,7 +37,7 @@ class Voucher {
 
 class AccountPage extends StatelessWidget {
   const AccountPage({
-    Key? key,
+    super.key,
     required this.username,
     required this.email,
     required this.isDarkMode,
@@ -54,7 +54,7 @@ class AccountPage extends StatelessWidget {
     required this.recommendedVoucher,
     required this.onUseVoucher,
     this.selectedVoucherCode,
-  }) : super(key: key);
+  });
 
   final String username;
   final String email;
@@ -77,6 +77,7 @@ class AccountPage extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -86,82 +87,159 @@ class AccountPage extends StatelessWidget {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SwitchListTile.adaptive(
-                      value: darkModeValue,
-                      onChanged: (value) {
-                        setSheetState(() {
-                          darkModeValue = value;
-                        });
-                        onToggleDarkMode(value);
-                      },
-                      title: const Text('Dark Mode'),
-                      secondary: const Icon(Icons.dark_mode_outlined),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.my_location),
-                      title: const Text('Detect Location'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        onDetectLocation();
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.edit),
-                      title: const Text('Edit Profile'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        onEditProfile();
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.lock),
-                      title: const Text('Change Password'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        onChangePassword();
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.info_outline),
-                      title: const Text('About Us'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        onAboutUs();
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.help_outline),
-                      title: const Text('FAQ'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        onFaq();
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                        ),
-                        onPressed: () {
-                          Navigator.of(sheetContext).pop();
-                          onLogout();
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SwitchListTile.adaptive(
+                        value: darkModeValue,
+                        onChanged: (value) {
+                          setSheetState(() {
+                            darkModeValue = value;
+                          });
+                          onToggleDarkMode(value);
                         },
-                        icon: const Icon(Icons.logout),
-                        label: const Text('Logout'),
+                        title: const Text('Dark Mode'),
+                        secondary: const Icon(Icons.dark_mode_outlined),
                       ),
-                    ),
-                  ],
+                      ListTile(
+                        leading: const Icon(Icons.confirmation_number_outlined),
+                        title: const Text('Voucher Diskon'),
+                        subtitle: const Text('Lihat dan pakai voucher aktif'),
+                        onTap: () {
+                          _showVoucherSheet(sheetContext);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.my_location),
+                        title: const Text('Detect Location'),
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          onDetectLocation();
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.edit),
+                        title: const Text('Edit Profile'),
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          onEditProfile();
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.lock),
+                        title: const Text('Change Password'),
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          onChangePassword();
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.info_outline),
+                        title: const Text('About Us'),
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          onAboutUs();
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.help_outline),
+                        title: const Text('FAQ'),
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          onFaq();
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                          ),
+                          onPressed: () {
+                            Navigator.of(sheetContext).pop();
+                            onLogout();
+                          },
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Logout'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
           },
+        );
+      },
+    );
+  }
+
+  void _showVoucherSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Voucher Diskon',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  if (recommendedVoucher != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.green.shade100),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Voucher rekomendasi',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildVoucherCard(recommendedVoucher!),
+                        ],
+                      ),
+                    ),
+                  if (vouchers.isNotEmpty) ...vouchers.map(_buildVoucherCard),
+                  if (vouchers.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Text(
+                        'Tidak ada voucher tersedia saat ini.',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );
@@ -193,13 +271,17 @@ class AccountPage extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: voucher.isUsed ? Colors.grey.shade200 : Colors.green.shade50,
+                    color: voucher.isUsed
+                        ? Colors.grey.shade200
+                        : Colors.green.shade50,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     voucher.isUsed ? 'Digunakan' : 'Aktif',
                     style: TextStyle(
-                      color: voucher.isUsed ? Colors.grey.shade600 : Colors.green.shade800,
+                      color: voucher.isUsed
+                          ? Colors.grey.shade600
+                          : Colors.green.shade800,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -209,7 +291,8 @@ class AccountPage extends StatelessWidget {
             const SizedBox(height: 8),
             Text(voucher.description),
             const SizedBox(height: 10),
-            if (voucher.minCartValue != null || voucher.requiredCategory != null) ...[
+            if (voucher.minCartValue != null ||
+                voucher.requiredCategory != null) ...[
               if (voucher.minCartValue != null)
                 Text(
                   'Syarat: minimal belanja Rp ${voucher.minCartValue}',
@@ -225,7 +308,11 @@ class AccountPage extends StatelessWidget {
             Row(
               children: [
                 Chip(
-                  label: Text('${voucher.discountPercent}%'),
+                  label: Text(
+                    voucher.discountPercent == 0
+                        ? 'FREE'
+                        : '${voucher.discountPercent}%',
+                  ),
                   backgroundColor: Colors.green.shade50,
                 ),
                 const SizedBox(width: 10),
@@ -236,11 +323,17 @@ class AccountPage extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: voucher.isUsed ? null : () => onUseVoucher(voucher.id),
+                onPressed: voucher.isUsed
+                    ? null
+                    : () => onUseVoucher(voucher.id),
                 style: FilledButton.styleFrom(
-                  backgroundColor: voucher.isUsed ? Colors.grey.shade400 : Colors.green.shade700,
+                  backgroundColor: voucher.isUsed
+                      ? Colors.grey.shade400
+                      : Colors.green.shade700,
                 ),
-                child: Text(voucher.isUsed ? 'Sudah digunakan' : 'Gunakan Voucher'),
+                child: Text(
+                  voucher.isUsed ? 'Sudah digunakan' : 'Gunakan Voucher',
+                ),
               ),
             ),
           ],
@@ -375,9 +468,7 @@ class AccountPage extends StatelessWidget {
                 ),
               )
             else
-              Column(
-                children: vouchers.map(_buildVoucherCard).toList(),
-              ),
+              Column(children: vouchers.map(_buildVoucherCard).toList()),
             const SizedBox(height: 18),
             if (recommendedVoucher != null) ...[
               Container(
@@ -398,9 +489,7 @@ class AccountPage extends StatelessWidget {
                         const Expanded(
                           child: Text(
                             'Voucher rekomendasi untuk keranjang Anda',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
@@ -457,9 +546,7 @@ class AccountPage extends StatelessWidget {
                 ),
               )
             else
-              Column(
-                children: vouchers.map(_buildVoucherCard).toList(),
-              ),
+              Column(children: vouchers.map(_buildVoucherCard).toList()),
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,

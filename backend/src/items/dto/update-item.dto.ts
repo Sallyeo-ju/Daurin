@@ -25,4 +25,9 @@ export class UpdateItemDto {
   @IsOptional()
   @IsBoolean()
   isAvailable?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  quantity?: number;
 }

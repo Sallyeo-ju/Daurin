@@ -1,4 +1,10 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  Matches,
+  MinLength,
+} from 'class-validator';
 
 export class RegisterDto {
   @IsString()
@@ -15,4 +21,10 @@ export class RegisterDto {
   @IsString()
   @MinLength(6)
   password!: string;
+
+  @IsString()
+  @Matches(/^\d{6}$/, {
+    message: 'PIN must be exactly 6 digits',
+  })
+  pin!: string;
 }
