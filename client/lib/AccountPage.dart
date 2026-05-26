@@ -21,15 +21,24 @@ class Voucher {
   final String? requiredCategory;
   final bool isUsed;
 
-  Voucher copyWith({bool? isUsed}) {
+  Voucher copyWith({
+    String? id,
+    String? title,
+    String? description,
+    int? discountPercent,
+    String? expiresOn,
+    int? minCartValue,
+    String? requiredCategory,
+    bool? isUsed,
+  }) {
     return Voucher(
-      id: id,
-      title: title,
-      description: description,
-      discountPercent: discountPercent,
-      expiresOn: expiresOn,
-      minCartValue: minCartValue,
-      requiredCategory: requiredCategory,
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      discountPercent: discountPercent ?? this.discountPercent,
+      expiresOn: expiresOn ?? this.expiresOn,
+      minCartValue: minCartValue ?? this.minCartValue,
+      requiredCategory: requiredCategory ?? this.requiredCategory,
       isUsed: isUsed ?? this.isUsed,
     );
   }
@@ -42,8 +51,6 @@ class AccountPage extends StatelessWidget {
     required this.email,
     required this.isDarkMode,
     required this.onToggleDarkMode,
-    required this.locationStatus,
-    required this.locationText,
     required this.onDetectLocation,
     required this.onLogout,
     required this.onEditProfile,
@@ -54,14 +61,14 @@ class AccountPage extends StatelessWidget {
     required this.recommendedVoucher,
     required this.onUseVoucher,
     this.selectedVoucherCode,
+    this.locationStatus = '',
+    this.locationText = '',
   });
 
   final String username;
   final String email;
   final bool isDarkMode;
   final ValueChanged<bool> onToggleDarkMode;
-  final String locationStatus;
-  final String locationText;
   final VoidCallback onDetectLocation;
   final VoidCallback onLogout;
   final VoidCallback onEditProfile;
@@ -72,103 +79,96 @@ class AccountPage extends StatelessWidget {
   final Voucher? recommendedVoucher;
   final ValueChanged<String> onUseVoucher;
   final String? selectedVoucherCode;
+  final String locationStatus;
+  final String locationText;
 
   void _showAccountMenu(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
         var darkModeValue = isDarkMode;
-
         return StatefulBuilder(
-          builder: (context, setSheetState) {
+          builder: (ctx, setState) {
             return SafeArea(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SwitchListTile.adaptive(
-                        value: darkModeValue,
-                        onChanged: (value) {
-                          setSheetState(() {
-                            darkModeValue = value;
-                          });
-                          onToggleDarkMode(value);
-                        },
-                        title: const Text('Dark Mode'),
-                        secondary: const Icon(Icons.dark_mode_outlined),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.confirmation_number_outlined),
-                        title: const Text('Voucher Diskon'),
-                        subtitle: const Text('Lihat dan pakai voucher aktif'),
-                        onTap: () {
-                          _showVoucherSheet(sheetContext);
-                        },
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.my_location),
-                        title: const Text('Detect Location'),
-                        onTap: () {
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SwitchListTile.adaptive(
+                      value: darkModeValue,
+                      onChanged: (v) {
+                        setState(() => darkModeValue = v);
+                        onToggleDarkMode(v);
+                      },
+                      title: const Text('Dark Mode'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.confirmation_number_outlined),
+                      title: const Text('Voucher Diskon'),
+                      subtitle: const Text('Lihat dan pakai voucher aktif'),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _showVoucherSheet(context);
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.my_location),
+                      title: const Text('Detect Location'),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        onDetectLocation();
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.edit),
+                      title: const Text('Edit Profile'),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        onEditProfile();
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.lock),
+                      title: const Text('Change Password'),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        onChangePassword();
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.info_outline),
+                      title: const Text('About Us'),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        onAboutUs();
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.help_outline),
+                      title: const Text('FAQ'),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        onFaq();
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () {
                           Navigator.of(sheetContext).pop();
-                          onDetectLocation();
+                          onLogout();
                         },
+                        icon: const Icon(Icons.logout),
+                        label: const Text('Logout'),
                       ),
-                      ListTile(
-                        leading: const Icon(Icons.edit),
-                        title: const Text('Edit Profile'),
-                        onTap: () {
-                          Navigator.of(sheetContext).pop();
-                          onEditProfile();
-                        },
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.lock),
-                        title: const Text('Change Password'),
-                        onTap: () {
-                          Navigator.of(sheetContext).pop();
-                          onChangePassword();
-                        },
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.info_outline),
-                        title: const Text('About Us'),
-                        onTap: () {
-                          Navigator.of(sheetContext).pop();
-                          onAboutUs();
-                        },
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.help_outline),
-                        title: const Text('FAQ'),
-                        onTap: () {
-                          Navigator.of(sheetContext).pop();
-                          onFaq();
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.redAccent,
-                          ),
-                          onPressed: () {
-                            Navigator.of(sheetContext).pop();
-                            onLogout();
-                          },
-                          icon: const Icon(Icons.logout),
-                          label: const Text('Logout'),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -178,70 +178,55 @@ class AccountPage extends StatelessWidget {
     );
   }
 
-  Widget _buildVoucherCard(BuildContext context, Voucher voucher) {
-    final theme = Theme.of(context);
-    final mutedText = theme.colorScheme.onSurface.withOpacity(0.7);
-
   void _showVoucherSheet(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      showDragHandle: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
         return SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Voucher Diskon',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Voucher Diskon',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                if (recommendedVoucher != null) ...[
+                  ListTile(
+                    title: Text('Rekomendasi: ${recommendedVoucher!.title}'),
+                    subtitle: Text(recommendedVoucher!.description),
+                    trailing: FilledButton(
+                      onPressed: recommendedVoucher!.isUsed
+                          ? null
+                          : () => onUseVoucher(recommendedVoucher!.id),
+                      child: const Text('Gunakan'),
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  if (recommendedVoucher != null)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.green.shade100),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Voucher rekomendasi',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 8),
-                          _buildVoucherCard(recommendedVoucher!),
-                        ],
-                      ),
-                    ),
-                  if (vouchers.isNotEmpty) ...vouchers.map(_buildVoucherCard),
-                  if (vouchers.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Text(
-                        'Tidak ada voucher tersedia saat ini.',
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    ),
+                  const Divider(),
                 ],
-              ),
+                if (vouchers.isNotEmpty)
+                  ...vouchers.map(
+                    (v) => ListTile(
+                      title: Text(v.title),
+                      subtitle: Text(v.description),
+                      trailing: FilledButton(
+                        onPressed: v.isUsed ? null : () => onUseVoucher(v.id),
+                        child: Text(v.isUsed ? 'Sudah digunakan' : 'Gunakan'),
+                      ),
+                    ),
+                  )
+                else
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Text('Tidak ada voucher tersedia saat ini.'),
+                  ),
+              ],
             ),
           ),
         );
@@ -249,10 +234,12 @@ class AccountPage extends StatelessWidget {
     );
   }
 
-  Widget _buildVoucherCard(Voucher voucher) {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -260,360 +247,40 @@ class AccountPage extends StatelessWidget {
           children: [
             Row(
               children: [
+                CircleAvatar(
+                  radius: 28,
+                  child: Text(
+                    username.isNotEmpty ? username[0].toUpperCase() : 'U',
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    voucher.title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: voucher.isUsed
-                        ? theme.colorScheme.surfaceVariant
-                        : theme.colorScheme.primaryContainer,
-                        ? Colors.grey.shade200
-                        : Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    voucher.isUsed ? 'Digunakan' : 'Aktif',
-                    style: TextStyle(
-                      color: voucher.isUsed
-                          ? theme.colorScheme.onSurface.withOpacity(0.6)
-                          : theme.colorScheme.primary,
-                          ? Colors.grey.shade600
-                          : Colors.green.shade800,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(voucher.description),
-            const SizedBox(height: 10),
-            if (voucher.minCartValue != null ||
-                voucher.requiredCategory != null) ...[
-              if (voucher.minCartValue != null)
-                Text(
-                  'Syarat: minimal belanja Rp ${voucher.minCartValue}',
-                  style: TextStyle(color: mutedText, fontSize: 12),
-                ),
-              if (voucher.requiredCategory != null)
-                Text(
-                  'Berlaku untuk kategori: ${voucher.requiredCategory}',
-                  style: TextStyle(color: mutedText, fontSize: 12),
-                ),
-              const SizedBox(height: 8),
-            ],
-            Row(
-              children: [
-                Chip(
-                  label: Text('${voucher.discountPercent}%'),
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                  label: Text(
-                    voucher.discountPercent == 0
-                        ? 'FREE'
-                        : '${voucher.discountPercent}%',
-                  ),
-                  backgroundColor: Colors.green.shade50,
-                ),
-                const SizedBox(width: 10),
-                Text('Expires ${voucher.expiresOn}'),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: voucher.isUsed
-                    ? null
-                    : () => onUseVoucher(voucher.id),
-                style: FilledButton.styleFrom(
-                  backgroundColor: voucher.isUsed
-                      ? theme.colorScheme.onSurface.withOpacity(0.12)
-                      : theme.colorScheme.primary,
-                  foregroundColor: voucher.isUsed
-                      ? theme.colorScheme.onSurface.withOpacity(0.38)
-                      : theme.colorScheme.onPrimary,
-                      ? Colors.grey.shade400
-                      : Colors.green.shade700,
-                ),
-                child: Text(
-                  voucher.isUsed ? 'Sudah digunakan' : 'Gunakan Voucher',
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final mutedText = theme.colorScheme.onSurface.withOpacity(0.7);
-    final surfaceVariant = theme.colorScheme.surfaceVariant;
-    final colorScheme = Theme.of(context).colorScheme;
-    final surfaceColor = isDarkMode
-        ? colorScheme.surfaceContainerHighest
-        : Colors.white;
-    final textColor = isDarkMode ? colorScheme.onSurface : Colors.black87;
-    final mutedTextColor = isDarkMode
-        ? colorScheme.onSurfaceVariant
-        : Colors.black54;
-
-    return SingleChildScrollView(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: theme.colorScheme.outline.withOpacity(0.12)),
-          color: surfaceColor,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isDarkMode ? Colors.white12 : Colors.black12,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: CircleAvatar(
-                radius: 36,
-                backgroundColor: theme.colorScheme.primaryContainer,
-                child: Text(
-                  username.isNotEmpty ? username[0].toUpperCase() : 'U',
-                  style: TextStyle(
-                    color: theme.colorScheme.primary,
-                    color: isDarkMode
-                        ? colorScheme.primaryContainer
-                        : Colors.green.shade800,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Center(
-              child: Text(
-                username,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Center(
-              child: Text(
-                email,
-                style: TextStyle(color: mutedText),
-              ),
-              child: Text(email, style: TextStyle(color: mutedTextColor)),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: theme.colorScheme.primary.withOpacity(0.24)),
-                color: isDarkMode ? colorScheme.surface : Colors.green.shade50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDarkMode ? Colors.white12 : Colors.green.shade100,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.my_location, color: theme.colorScheme.primary),
-                      Icon(Icons.my_location, color: colorScheme.primary),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Location',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      const Spacer(),
-                      Text(
-                        locationStatus,
-                        style: TextStyle(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    locationText,
-                    style: TextStyle(color: mutedText),
-                  ),
-                  Text(locationText, style: TextStyle(color: mutedTextColor)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'Voucher Saya',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (selectedVoucherCode != null)
-              Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    children: [
-                      Icon(Icons.check_circle, color: theme.colorScheme.primary),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Voucher aktif: $selectedVoucherCode',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            if (vouchers.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: surfaceVariant,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  'Tidak ada voucher tersedia saat ini.',
-                  style: TextStyle(color: mutedText),
-                ),
-              )
-            else
-              Column(
-                children: vouchers.map((voucher) => _buildVoucherCard(context, voucher)).toList(),
-              ),
-            const SizedBox(height: 18),
-            if (recommendedVoucher != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: theme.colorScheme.primary.withOpacity(0.24)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.star, color: theme.colorScheme.primary),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Voucher rekomendasi untuk keranjang Anda',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
+                      Text(username, style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      Text(email, style: theme.textTheme.bodySmall),
+                      if (locationStatus.isNotEmpty ||
+                          locationText.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          locationStatus.isNotEmpty
+                              ? '$locationStatus • $locationText'
+                              : locationText,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 10),
-                    _buildVoucherCard(context, recommendedVoucher!),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-            ],
-            Text(
-              'Voucher Saya',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (selectedVoucherCode != null)
-              Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    children: [
-                      Icon(Icons.check_circle, color: theme.colorScheme.primary),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Voucher aktif: $selectedVoucherCode',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
-              ),
-            if (vouchers.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: surfaceVariant,
-                  borderRadius: BorderRadius.circular(16),
+                IconButton(
+                  onPressed: () => _showAccountMenu(context),
+                  icon: const Icon(Icons.more_vert),
                 ),
-                child: Text(
-                  'Tidak ada voucher tersedia saat ini.',
-                  style: TextStyle(color: mutedText),
-                ),
-              )
-            else
-              Column(
-                children: vouchers.map((voucher) => _buildVoucherCard(context, voucher)).toList(),
-              ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => _showAccountMenu(context),
-                icon: const Icon(Icons.tune),
-                label: const Text('Menu Akun'),
-              ),
+              ],
             ),
           ],
         ),

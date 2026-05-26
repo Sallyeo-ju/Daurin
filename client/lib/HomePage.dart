@@ -326,9 +326,9 @@ class _HomePageState extends State<HomePage> {
   // Total harga setelah menerapkan diskon penjual (per-item discountedPrice jika ada)
   int get _priceAfterSellerTotal {
     return _cart.fold(
-        0,
-        (sum, c) =>
-            sum + ((c.item.discountedPrice ?? c.item.price) * c.quantity));
+      0,
+      (sum, c) => sum + ((c.item.discountedPrice ?? c.item.price) * c.quantity),
+    );
   }
 
   int get _discountAmount {
@@ -392,33 +392,27 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Buat list item untuk checkout
-    final List<Map<String, dynamic>> cartItems = _cart
-        .map((cartItem) => {
-              'name': cartItem.item.name,
-              'quantity': cartItem.quantity,
-              'price': cartItem.item.price,
-              'location': cartItem.item.location,
-              'subtotal': cartItem.item.price * cartItem.quantity,
-            })
-        .map(
-          (cartItem) => {
-            'itemId': cartItem.item.id,
-            'name': cartItem.item.name,
-            'quantity': cartItem.quantity,
-            'price': cartItem.item.price,
-            'subtotal': cartItem.item.price * cartItem.quantity,
-            'image': cartItem.item.imageUrl,
-            'sellerName': cartItem.item.sellerName,
-            'sellerEmail': cartItem.item.sellerEmail,
-            'threadId':
-                cartItem.item.sellerEmail == null ||
-                    cartItem.item.sellerEmail!.isEmpty ||
-                    _currentAccountEmail == null
-                ? null
-                : '${cartItem.item.id.trim().toLowerCase()}__${cartItem.item.sellerEmail!.trim().toLowerCase()}__${_currentAccountEmail!.toLowerCase()}',
-          },
-        )
-        .toList();
+    final List<Map<String, dynamic>> cartItems = _cart.map((cartItem) {
+      final threadId =
+          (cartItem.item.sellerEmail == null ||
+              cartItem.item.sellerEmail!.isEmpty ||
+              _currentAccountEmail == null)
+          ? null
+          : '${cartItem.item.id.trim().toLowerCase()}__${cartItem.item.sellerEmail!.trim().toLowerCase()}__${_currentAccountEmail!.toLowerCase()}';
+
+      return {
+        'itemId': cartItem.item.id,
+        'name': cartItem.item.name,
+        'quantity': cartItem.quantity,
+        'price': cartItem.item.price,
+        'location': cartItem.item.location,
+        'subtotal': cartItem.item.price * cartItem.quantity,
+        'image': cartItem.item.imageUrl,
+        'sellerName': cartItem.item.sellerName,
+        'sellerEmail': cartItem.item.sellerEmail,
+        'threadId': threadId,
+      };
+    }).toList();
 
     // Calculate admin fee (1500 per transaction)
     const int adminFee = 1500;
@@ -1169,12 +1163,10 @@ class _HomePageState extends State<HomePage> {
                 side: BorderSide(color: Colors.green.shade700),
               ),
             ),
-            textTheme: ThemeData.dark(useMaterial3: true)
-                .textTheme
-                .apply(
-                  bodyColor: Colors.white,
-                  displayColor: Colors.white,
-                ),
+            textTheme: ThemeData.dark(useMaterial3: true).textTheme.apply(
+              bodyColor: Colors.white,
+              displayColor: Colors.white,
+            ),
           )
         : ThemeData.light(useMaterial3: true).copyWith(
             scaffoldBackgroundColor: const Color(0xFFF6F8F3),
@@ -1198,92 +1190,91 @@ class _HomePageState extends State<HomePage> {
             ),
           );
 
-    final titles = ['Daurin', 'Promo', 'Keranjang', 'Akun'];
+    final titles = ['Daurin', 'Promo', 'History', 'Keranjang', 'Akun'];
 
     return Theme(
       data: pageTheme,
       child: Scaffold(
-        backgroundColor: pageTheme.scaffoldBackgroundColor,
+        backgroundColor: _pageBackgroundColor,
         appBar: AppBar(
-    final titles = ['Daurin', 'Promo', 'History', 'Keranjang', 'Akun'];
-
-    return Scaffold(
-      backgroundColor: _pageBackgroundColor,
-      appBar: AppBar(
-        title: Text(titles[_selectedIndex]),
-        centerTitle: false,
-        backgroundColor: Colors.green.shade700,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        actions: _selectedIndex == 0
-            ? [
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(999),
-                    onTap: _detectCurrentLocation,
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 150),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: Colors.white24),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.my_location, size: 16),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              _locationStatus == 'Aktif'
-                                  ? _detectedLocationText
-                                  : 'Detect lokasi',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12),
+          title: Text(titles[_selectedIndex]),
+          centerTitle: false,
+          backgroundColor: Colors.green.shade700,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          actions: _selectedIndex == 0
+              ? [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: _detectCurrentLocation,
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 150),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withAlpha((0.18 * 255).round()),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.my_location, size: 16),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                _locationStatus == 'Aktif'
+                                    ? _detectedLocationText
+                                    : 'Detect lokasi',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ]
+                ]
+              : null,
+        ),
+        body: pages[_selectedIndex],
+        floatingActionButton: _selectedIndex == 0
+            ? FloatingActionButton(
+                onPressed: _showAddItemDialog,
+                backgroundColor: Colors.green.shade700,
+                child: const Icon(Icons.add, color: Colors.white),
+              )
             : null,
-      ),
-      body: pages[_selectedIndex],
-      floatingActionButton: _selectedIndex == 0
-          ? FloatingActionButton(
-              onPressed: _showAddItemDialog,
-              backgroundColor: Colors.green.shade700,
-              child: const Icon(Icons.add, color: Colors.white),
-            )
-          : null,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onTabChanged,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.local_offer),
-            label: 'Promo',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Akun'),
-        ],
-        selectedItemColor: Colors.green.shade700,
-        unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-        type: BottomNavigationBarType.fixed,
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: _onTabChanged,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.local_offer),
+              label: 'Promo',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.history),
+              label: 'History',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.shopping_cart),
+              label: 'Cart',
+            ),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Akun'),
+          ],
+          selectedItemColor: Colors.green.shade700,
+          unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
+          type: BottomNavigationBarType.fixed,
+        ),
       ),
     );
   }
@@ -1841,7 +1832,9 @@ class _HomePageState extends State<HomePage> {
                         Text(
                           'Lihat penawaran khusus dan item diskon yang dapat kamu tambahkan ke keranjang.',
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
