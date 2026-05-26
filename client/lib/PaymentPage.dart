@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'CheckoutPage.dart';
+import 'ChatPage.dart';
+import 'HistoryPage.dart';
 
 import 'ChatPage.dart';
 import 'CheckoutPage.dart';
@@ -60,6 +63,59 @@ class _PaymentPageState extends State<PaymentPage> {
       ),
     );
 
+  int get _estimatedDistanceKm {
+    if (widget.userAddress.isEmpty) return 10;
+    final normalizedAddress = widget.userAddress.toLowerCase();
+    final itemLocations = widget.cartItems
+        .map((item) => (item['location']?.toString() ?? '').toLowerCase())
+        .where((loc) => loc.isNotEmpty)
+        .toList();
+
+    if (itemLocations.any((loc) => normalizedAddress.contains(loc))) {
+      return 3;
+    }
+
+    if (itemLocations.any((loc) {
+      final firstPart = loc.split(',').first.trim();
+      return firstPart.isNotEmpty && normalizedAddress.contains(firstPart);
+    })) {
+      return 5;
+    }
+
+    if (normalizedAddress.contains('jakarta') ||
+        itemLocations.any((loc) => loc.contains('jakarta'))) {
+      return 12;
+    }
+
+    return 20;
+  }
+
+  int get _shippingFee {
+    final distanceKm = _estimatedDistanceKm;
+    if (distanceKm <= 5) return 10000;
+    if (distanceKm <= 12) return 15000;
+    if (distanceKm <= 20) return 22000;
+    return 30000;
+  }
+
+  int get _adminFee {
+    final computed = (widget.subtotal * 0.02).round();
+    return computed < 5000 ? 5000 : computed;
+  }
+
+  int get _totalWithFees => widget.total + _shippingFee + _adminFee;
+
+  void _submitPayment() {
+    if (_needsCardInfo) {
+      if (_cardNumberController.text.trim().isEmpty ||
+          _cardHolderController.text.trim().isEmpty ||
+          _expiryController.text.trim().isEmpty ||
+          _cvvController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Lengkapi data kartu sebelum melanjutkan.')),
+        );
+        return;
+      }
     if (result != null && result['confirmed'] == true) {
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -79,6 +135,40 @@ class _PaymentPageState extends State<PaymentPage> {
         ),
       ],
     );
+  }
+
+  void _openHistoryPage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const HistoryPage()),
+    );
+  }
+
+  void _openChatPage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ChatPage()),
+    );
+  }
+
+  void _goToCheckout() async {
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => CheckoutPage(
+          cartItems: widget.cartItems,
+          subtotal: widget.subtotal,
+          discount: widget.discount,
+          total: _totalWithFees,
+          adminFee: _adminFee,
+          shippingFee: _shippingFee,
+          voucherCode: widget.voucherCode,
+          userAddress: widget.userAddress,
+        ),
+      ),
+    );
+
+    if (result != null && result['confirmed'] == true) {
+      if (!mounted) return;
+      _submitPayment();
+    }
   }
 
   @override
@@ -107,6 +197,11 @@ class _PaymentPageState extends State<PaymentPage> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
+          child: Builder(builder: (ctx) {
+            final bottom = MediaQuery.of(ctx).viewInsets.bottom;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0 + bottom),
+                child: Column(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -129,6 +224,22 @@ class _PaymentPageState extends State<PaymentPage> {
                         _buildSummaryRow('Subtotal', widget.subtotal),
                         const SizedBox(height: 8),
                         _buildSummaryRow('Diskon voucher', -widget.discount),
+                        const SizedBox(height: 8),
+                        _buildSummaryRow('Biaya admin', _adminFee),
+                        const SizedBox(height: 8),
+                        _buildSummaryRow('Ongkir', _shippingFee),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Estimasi jarak: ${_estimatedDistanceKm} km',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        _buildSummaryRow('Total bayar', _totalWithFees, isBold: true),
                         if (widget.voucherCode != null) ...[
                           const SizedBox(height: 12),
                           Text(
@@ -146,6 +257,18 @@ class _PaymentPageState extends State<PaymentPage> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _openHistoryPage,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.blue.shade700,
+                    ),
+                    child: const Text('Lihat Riwayat Transaksi'),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 const SizedBox(height: 20),
                 const Text(
                   'Metode Pembayaran',
@@ -215,6 +338,7 @@ class _PaymentPageState extends State<PaymentPage> {
                       backgroundColor: Colors.green.shade700,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
+                    child: const Text('Lanjut ke Checkout'),
                     child: const Text('Lanjut ke Konfirmasi'),
                   ),
                 ),

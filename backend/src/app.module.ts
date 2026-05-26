@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -18,7 +19,8 @@ function sanitizeMongoUri(uri: string): string {
     return uri;
   }
 
-  const [, scheme, auth, hostAndPath, queryString] = authMatch;
+  const [, scheme, auth, hostAndPath] = authMatch;
+  let queryString = authMatch[4] ?? '';
   const separatorIndex = auth.indexOf(':');
 
   if (separatorIndex < 0) {
@@ -38,23 +40,25 @@ function sanitizeMongoUri(uri: string): string {
     if (entries.length === 1) {
       const [databaseName] = entries[0];
       path = `/${databaseName}`;
+      queryString = '';
     }
   }
 
-  return `${scheme}://${username}:${encodeURIComponent(password)}@${host}${path}`;
+  return `${scheme}://${username}:${encodeURIComponent(password)}@${host}${path}${queryString ? `?${queryString}` : ''}`;
 }
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: join(__dirname, '..', '.env'),
     }),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         uri: sanitizeMongoUri(
           configService.get<string>('MONGODB_URI') ??
-          'mongodb://localhost:27017/daurin',
+          'mongodb://127.0.0.1:27017/daurin',
         ),
         // Increase timeouts to allow for slower network / SRV resolution
         serverSelectionTimeoutMS: 20000,

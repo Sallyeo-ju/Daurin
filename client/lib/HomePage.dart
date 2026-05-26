@@ -248,8 +248,9 @@ class _HomePageState extends State<HomePage> {
                 _accountAddressController.text.trim(),
               );
               if (passwordController.text.trim().isNotEmpty) {
-                _accountPasswordController.text = passwordController.text
-                    .trim();
+                final pwd = passwordController.text.trim();
+                _accountPasswordController.text = pwd;
+                await prefs.setString('account_password', pwd);
               }
               if (!mounted) return;
               navigator.pop();
@@ -322,15 +323,28 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // Total harga setelah menerapkan diskon penjual (per-item discountedPrice jika ada)
+  int get _priceAfterSellerTotal {
+    return _cart.fold(
+        0,
+        (sum, c) =>
+            sum + ((c.item.discountedPrice ?? c.item.price) * c.quantity));
+  }
+
   int get _discountAmount {
     if (_appliedVoucherDiscountPercent == null || _cart.isEmpty) {
       return 0;
     }
-    return ((_cartTotal * _appliedVoucherDiscountPercent!) / 100).round();
+
+    // Voucher applies on top of seller-discounted prices (stacking).
+    final afterSeller = _priceAfterSellerTotal;
+    return ((afterSeller * _appliedVoucherDiscountPercent!) / 100).round();
   }
 
   int get _finalCartTotal {
-    return _cartTotal - _discountAmount;
+    // Subtotal (original prices) minus seller discounts minus voucher discount
+    final sellerDiscount = _cartTotal - _priceAfterSellerTotal;
+    return _cartTotal - sellerDiscount - _discountAmount;
   }
 
   void _applyVoucher(String voucherId) {
@@ -379,6 +393,13 @@ class _HomePageState extends State<HomePage> {
 
     // Buat list item untuk checkout
     final List<Map<String, dynamic>> cartItems = _cart
+        .map((cartItem) => {
+              'name': cartItem.item.name,
+              'quantity': cartItem.quantity,
+              'price': cartItem.item.price,
+              'location': cartItem.item.location,
+              'subtotal': cartItem.item.price * cartItem.quantity,
+            })
         .map(
           (cartItem) => {
             'itemId': cartItem.item.id,
@@ -1105,6 +1126,63 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     ];
+    final pageTheme = _darkMode
+        ? ThemeData.dark(useMaterial3: true).copyWith(
+            scaffoldBackgroundColor: const Color(0xFF121212),
+            cardColor: const Color(0xFF1E1E1E),
+            appBarTheme: AppBarTheme(
+              backgroundColor: Colors.green.shade700,
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            filledButtonTheme: FilledButtonThemeData(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green.shade700,
+                foregroundColor: Colors.white,
+              ),
+            ),
+            outlinedButtonTheme: OutlinedButtonThemeData(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.green.shade700,
+                side: BorderSide(color: Colors.green.shade700),
+              ),
+            ),
+            textTheme: ThemeData.dark(useMaterial3: true)
+                .textTheme
+                .apply(
+                  bodyColor: Colors.white,
+                  displayColor: Colors.white,
+                ),
+          )
+        : ThemeData.light(useMaterial3: true).copyWith(
+            scaffoldBackgroundColor: const Color(0xFFF6F8F3),
+            cardColor: Colors.white,
+            appBarTheme: AppBarTheme(
+              backgroundColor: Colors.green.shade700,
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            filledButtonTheme: FilledButtonThemeData(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green.shade700,
+                foregroundColor: Colors.white,
+              ),
+            ),
+            outlinedButtonTheme: OutlinedButtonThemeData(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.green.shade700,
+                side: BorderSide(color: Colors.green.shade700),
+              ),
+            ),
+          );
+
+    final titles = ['Daurin', 'Promo', 'Keranjang', 'Akun'];
+
+    return Theme(
+      data: pageTheme,
+      child: Scaffold(
+        backgroundColor: pageTheme.scaffoldBackgroundColor,
+        appBar: AppBar(
     final titles = ['Daurin', 'Promo', 'History', 'Keranjang', 'Akun'];
 
     return Scaffold(

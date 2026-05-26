@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'HomePage.dart';
 import 'RegisterPage.dart';
 import 'pin_gate.dart';
@@ -24,7 +25,6 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   late final Future<void> _googleSignInInit = _googleSignIn.initialize();
   bool _isLoading = false;
-  bool _isGoogleLoading = false;
   bool _obscurePassword = true;
 
   @override
@@ -204,6 +204,11 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _quickLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUsername = prefs.getString('account_username')?.trim();
+    final savedEmail = prefs.getString('account_email')?.trim();
+    final savedPassword = prefs.getString('account_password') ?? '';
   Future<void> _loginWithGoogle() async {
     setState(() => _isGoogleLoading = true);
 
@@ -211,17 +216,37 @@ class _LoginPageState extends State<LoginPage> {
       await _googleSignInInit;
       final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();
 
-      if (!mounted) return;
+    if ((savedUsername == null || savedUsername.isEmpty) &&
+        (savedEmail == null || savedEmail.isEmpty)) {
+      await _showStatusDialog(
+        title: 'Quick Login tidak tersedia',
+        message: 'Tidak ada kredensial tersimpan. Silakan login manual.',
+        isSuccess: false,
+      );
+      return;
+    }
 
+    if (savedPassword.isEmpty) {
+      await _showStatusDialog(
+        title: 'Quick Login tidak tersedia',
+        message: 'Password tidak tersimpan. Simpan password di profil untuk Quick Login.',
+        isSuccess: false,
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final identifier = (savedUsername != null && savedUsername.isNotEmpty)
+          ? savedUsername
+          : savedEmail!;
       final GoogleSignInAuthentication googleAuth = googleUser.authentication;
 
       final response = await postJsonWithFallback(
-        path: '/auth/google',
+        path: '/auth/login',
         body: jsonEncode({
-          'idToken': googleAuth.idToken,
-          'email': googleUser.email,
-          'displayName': googleUser.displayName,
-          'photoUrl': googleUser.photoUrl,
+          'identifier': identifier,
+          'password': savedPassword,
         }),
       );
 
@@ -236,9 +261,8 @@ class _LoginPageState extends State<LoginPage> {
         await prefs.setString('account_email', googleUser.email);
         await PinGate.setActiveAccountIdentifier(googleUser.email);
         await _showStatusDialog(
-          title: 'Login Berhasil',
-          message:
-              'Selamat datang, ${googleUser.displayName ?? googleUser.email}!',
+          title: 'Quick Login Berhasil',
+          message: 'Login otomatis berhasil.',
           isSuccess: true,
         );
         if (!mounted) return;
@@ -251,22 +275,23 @@ class _LoginPageState extends State<LoginPage> {
 
       final Map<String, dynamic>? data =
           jsonDecode(response.body) as Map<String, dynamic>?;
+      final message = data?['message'];
+
       await _showStatusDialog(
-        title: 'Login Google Gagal',
-        message: data?['message'] is String
-            ? data!['message']
-            : 'Gagal masuk dengan Google. Coba lagi.',
+        title: 'Quick Login Gagal',
+        message: message is String
+            ? message
+            : 'Login gagal. Cek kredensial tersimpan.',
         isSuccess: false,
       );
-    } catch (error) {
-      if (!mounted) return;
+    } catch (e) {
       await _showStatusDialog(
-        title: 'Koneksi Gagal',
-        message: 'Tidak bisa login dengan Google: ${error.toString()}',
+        title: 'Quick Login Error',
+        message: 'Terjadi kesalahan: ${e.toString()}',
         isSuccess: false,
       );
     } finally {
-      if (mounted) setState(() => _isGoogleLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -277,6 +302,101 @@ class _LoginPageState extends State<LoginPage> {
         title: const Text('Login / Register Page'),
         centerTitle: true,
       ),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Email / Username:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _identifierController,
+                decoration: InputDecoration(
+                  hintText: 'Masukkan email / username kamu',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  prefixIcon: const Icon(Icons.person_outline),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Email atau username wajib diisi';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Password:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  hintText: 'Masukkan password',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Password wajib diisi';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _login,
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Login ke Daurin'),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _isLoading ? null : _quickLogin,
+                child: const Text('Quick Login (pakai kredensial tersimpan)'),
+              ),
+              const SizedBox(height: 24),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => RegisterPage(
+                        initialEmail: _identifierController.text.contains('@')
+                            ? _identifierController.text
+                            : '',
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -453,57 +573,3 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-class _GoogleLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-    final rect = Rect.fromCircle(center: center, radius: radius);
-
-    canvas.clipPath(Path()..addOval(rect));
-
-    canvas.drawArc(
-      rect,
-      -2.618,
-      1.571,
-      true,
-      Paint()..color = const Color(0xFFEA4335),
-    );
-    canvas.drawArc(
-      rect,
-      -1.047,
-      2.094,
-      true,
-      Paint()..color = const Color(0xFF4285F4),
-    );
-    canvas.drawArc(
-      rect,
-      1.047,
-      1.571,
-      true,
-      Paint()..color = const Color(0xFFFBBC05),
-    );
-    canvas.drawArc(
-      rect,
-      2.618,
-      0.524,
-      true,
-      Paint()..color = const Color(0xFF34A853),
-    );
-
-    canvas.drawCircle(center, radius * 0.65, Paint()..color = Colors.white);
-
-    canvas.drawRect(
-      Rect.fromLTWH(
-        center.dx,
-        center.dy - radius * 0.18,
-        radius * 0.95,
-        radius * 0.36,
-      ),
-      Paint()..color = const Color(0xFF4285F4),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
