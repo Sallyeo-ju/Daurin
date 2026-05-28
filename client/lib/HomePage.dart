@@ -15,6 +15,9 @@ import 'PaymentPage.dart';
 import 'HistoryPage.dart';
 import 'pin_gate.dart';
 import 'app_theme_controller.dart';
+import 'ShippingFee.dart';
+
+const String _brandLogoAsset = 'assets/images/Logo.jpeg';
 
 const List<String> _standardLocations = [
   'Jabodetabek',
@@ -416,23 +419,16 @@ class _HomePageState extends State<HomePage> {
 
     // Calculate admin fee (1500 per transaction)
     const int adminFee = 1500;
-
-    // Calculate shipping fee (5000 per transaction as base, could be based on distance later)
-    // For now: 5000 base + 1000 per item for simplicity
-    final int shippingFee = 5000 + (_cart.length * 1000);
-
-    // Update total: subtotal + adminFee + shippingFee - discount
-    final int finalTotal =
-        _cartTotal + adminFee + shippingFee - _discountAmount;
-
+    int liveShippingFee = await OngkirService().fetchOngkir();
+    if (!mounted) return;
     final paid = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => PaymentPage(
           subtotal: _cartTotal,
           adminFee: adminFee,
-          shippingFee: shippingFee,
+          shippingFee: liveShippingFee,
           discount: _discountAmount,
-          total: finalTotal,
+          total: _finalCartTotal,
           voucherCode: _appliedVoucherCode,
           cartItems: cartItems,
           userAddress: _accountAddressController.text,
@@ -1147,7 +1143,7 @@ class _HomePageState extends State<HomePage> {
             scaffoldBackgroundColor: const Color(0xFF121212),
             cardColor: const Color(0xFF1E1E1E),
             appBarTheme: AppBarTheme(
-              backgroundColor: Colors.green.shade700,
+              backgroundColor: Colors.brown.shade700,
               foregroundColor: Colors.white,
               elevation: 0,
             ),
@@ -1159,8 +1155,8 @@ class _HomePageState extends State<HomePage> {
             ),
             outlinedButtonTheme: OutlinedButtonThemeData(
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.green.shade700,
-                side: BorderSide(color: Colors.green.shade700),
+                foregroundColor: Colors.brown.shade700,
+                side: BorderSide(color: Colors.brown.shade700),
               ),
             ),
             textTheme: ThemeData.dark(useMaterial3: true).textTheme.apply(
@@ -1169,10 +1165,10 @@ class _HomePageState extends State<HomePage> {
             ),
           )
         : ThemeData.light(useMaterial3: true).copyWith(
-            scaffoldBackgroundColor: const Color(0xFFF6F8F3),
+            scaffoldBackgroundColor: const Color(0xFFF8F5EF),
             cardColor: Colors.white,
             appBarTheme: AppBarTheme(
-              backgroundColor: Colors.green.shade700,
+              backgroundColor: Colors.brown.shade700,
               foregroundColor: Colors.white,
               elevation: 0,
             ),
@@ -1184,8 +1180,8 @@ class _HomePageState extends State<HomePage> {
             ),
             outlinedButtonTheme: OutlinedButtonThemeData(
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.green.shade700,
-                side: BorderSide(color: Colors.green.shade700),
+                foregroundColor: Colors.brown.shade700,
+                side: BorderSide(color: Colors.brown.shade700),
               ),
             ),
           );
@@ -1199,7 +1195,7 @@ class _HomePageState extends State<HomePage> {
         appBar: AppBar(
           title: Text(titles[_selectedIndex]),
           centerTitle: false,
-          backgroundColor: Colors.green.shade700,
+          backgroundColor: Colors.brown.shade700,
           foregroundColor: Colors.white,
           elevation: 0,
           automaticallyImplyLeading: false,
@@ -1271,7 +1267,7 @@ class _HomePageState extends State<HomePage> {
             ),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Akun'),
           ],
-          selectedItemColor: Colors.green.shade700,
+          selectedItemColor: Colors.brown.shade700,
           unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
           type: BottomNavigationBarType.fixed,
         ),
@@ -1542,7 +1538,7 @@ class _HomePageState extends State<HomePage> {
   String? _priceSort; // 'asc' or 'desc'
 
   Color get _pageBackgroundColor =>
-      _darkMode ? const Color(0xFF0E1116) : const Color(0xFFF6F8F3);
+      _darkMode ? const Color(0xFF0E1116) : const Color(0xFFF8F5EF);
 
   Color get _surfaceColor => _darkMode ? const Color(0xFF191F26) : Colors.white;
 
@@ -1973,24 +1969,61 @@ class _HeaderBar extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.green.shade700, Colors.green.shade500],
+          colors: [Colors.brown.shade700, Colors.green.shade700],
         ),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Daurin',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Image.asset(
+                  _brandLogoAsset,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Icon(Icons.recycling, color: Colors.white);
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Daurin',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Tempat jual beli yang lebih hijau dan nyaman.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
-            'Cari semua kebutuhan daur ulang kamu di Daurin....',
+            'Cari barang bekas, promo, dan produk ramah lingkungan dengan tampilan yang lebih rapi.',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.9),
               fontSize: 14,

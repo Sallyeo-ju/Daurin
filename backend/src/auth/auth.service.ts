@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import axios from 'axios';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyPinDto } from './dto/verify-pin.dto';
@@ -20,6 +21,80 @@ export class AuthService {
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
   ) {}
+
+  async googleLogin(dto: { idToken: string; email?: string; displayName?: string; photoUrl?: string; }) {
+    try {
+      if (!dto.idToken) {
+        throw new BadRequestException('idToken is required');
+      }
+
+      // Verify token with Google's tokeninfo endpoint
+      const verifyResp = await axios.get(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(dto.idToken)}`,
+      );
+
+      const tokenInfo = verifyResp.data as any;
+      const email = (tokenInfo.email || dto.email || '').toString().trim().toLowerCase();
+      const displayName = dto.displayName ?? tokenInfo.name ?? '';
+      const photoUrl = dto.photoUrl ?? tokenInfo.picture ?? '';
+
+      if (!email) {
+        throw new BadRequestException('Verified token does not contain email');
+      }
+
+      // Upsert user by email
+      let user = await this.userModel.findOne({ email }).exec();
+      if (user) {
+        // update fields if necessary
+        const update: any = {};
+        if (photoUrl && user.photoUrl !== photoUrl) update.photoUrl = photoUrl;
+        if (!user.provider) update.provider = 'google';
+        if (Object.keys(update).length > 0) {
+          await this.userModel.updateOne({ _id: user._id }, { $set: update }).exec();
+          user = await this.userModel.findById(user._id).exec();
+        }
+      } else {
+        // create a safe username from displayName or email localpart
+        let baseUsername = displayName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        if (!baseUsername || baseUsername.length === 0) {
+          baseUsername = (email.split('@')[0] || '').replace(/[^a-z0-9]+/g, '_');
+        }
+        let usernameCandidate = baseUsername;
+        let suffix = 0;
+        while (await this.userModel.findOne({ username: usernameCandidate }).exec()) {
+          suffix += 1;
+          usernameCandidate = `${baseUsername}_${suffix}`;
+        }
+
+        const newUser = await this.userModel.create({
+          username: usernameCandidate,
+          email,
+          provider: 'google',
+          photoUrl,
+        } as any);
+        user = newUser;
+      }
+
+      if (!user) {
+        throw new InternalServerErrorException('User creation failed');
+      }
+
+      return {
+        message: 'Login successful',
+        user: {
+          id: (user as any)._id,
+          username: (user as any).username,
+          email: (user as any).email,
+          photoUrl: (user as any).photoUrl,
+        },
+      };
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        throw new InternalServerErrorException('Failed to verify token with Google');
+      }
+      throw this.mapDbError(error);
+    }
+  }
 
   async register(registerDto: RegisterDto) {
     try {
@@ -126,6 +201,28 @@ export class AuthService {
         message: 'PIN verified',
         verified: true,
       };
+    } catch (error) {
+      throw this.mapDbError(error);
+    }
+  }
+
+  async setPin(dto: { identifier: string; pin: string }) {
+    try {
+      const normalizedIdentifier = dto.identifier.trim().toLowerCase();
+      const user = await this.userModel
+        .findOne({
+          $or: [{ email: normalizedIdentifier }, { username: normalizedIdentifier }],
+        })
+        .exec();
+
+      if (!user) {
+        throw new NotFoundException('Account not found');
+      }
+
+      user.pin = dto.pin;
+      await user.save();
+
+      return { message: 'PIN set' };
     } catch (error) {
       throw this.mapDbError(error);
     }

@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
 import 'pin_gate.dart';
+
+const String _brandLogoAsset = 'assets/images/Logo.jpeg';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key, this.initialEmail = ''});
@@ -23,13 +24,9 @@ class _RegisterPageState extends State<RegisterPage> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _pinController = TextEditingController();
-  final _confirmPinController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _obscurePin = true;
-  bool _obscureConfirmPin = true;
 
   Future<void> _showStatusDialog({
     required String title,
@@ -93,8 +90,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _pinController.dispose();
-    _confirmPinController.dispose();
+
     super.dispose();
   }
 
@@ -115,7 +111,6 @@ class _RegisterPageState extends State<RegisterPage> {
           'email': _emailController.text.trim(),
           'phoneNumber': _phoneController.text.trim(),
           'password': _passwordController.text,
-          'pin': _pinController.text.trim(),
         }),
       );
 
@@ -124,26 +119,47 @@ class _RegisterPageState extends State<RegisterPage> {
       }
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        await PinGate.savePinForAliases(
-          email: _emailController.text.trim(),
-          username: _usernameController.text.trim(),
-          pin: _pinController.text.trim(),
-        );
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(
           'account_username',
           _usernameController.text.trim(),
         );
         await prefs.setString('account_email', _emailController.text.trim());
-        await _showStatusDialog(
-          title: 'Register Berhasil',
-          message: 'Akun berhasil dibuat, silakan login.',
-          isSuccess: true,
+
+        // Auto-login after successful registration
+        final loginResp = await postJsonWithFallback(
+          path: '/auth/login',
+          body: jsonEncode({
+            'identifier': _emailController.text.trim(),
+            'password': _passwordController.text,
+          }),
         );
-        if (!mounted) {
-          return;
+
+        if (loginResp.statusCode >= 200 && loginResp.statusCode < 300) {
+          await PinGate.setActiveAccountIdentifier(
+            _emailController.text.trim(),
+          );
+          // Ask user to create PIN now that they're logged in
+          if (!mounted) return;
+          await _promptCreatePin();
+          if (!mounted) return;
+          await _showStatusDialog(
+            title: 'Register & Login Berhasil',
+            message:
+                'Akun dibuat dan Anda sudah login. Silakan buat PIN untuk keamanan.',
+            isSuccess: true,
+          );
+          if (!mounted) return;
+          Navigator.pop(context);
+        } else {
+          await _showStatusDialog(
+            title: 'Register Berhasil',
+            message: 'Akun berhasil dibuat. Silakan login.',
+            isSuccess: true,
+          );
+          if (!mounted) return;
+          Navigator.pop(context);
         }
-        Navigator.pop(context);
       } else {
         final Map<String, dynamic>? data =
             jsonDecode(response.body) as Map<String, dynamic>?;
@@ -185,221 +201,299 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  Future<void> _promptCreatePin() async {
+    final pinController = TextEditingController();
+    final confirmController = TextEditingController();
+
+    await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Buat PIN'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: pinController,
+                keyboardType: TextInputType.number,
+                obscureText: true,
+                maxLength: 6,
+                decoration: const InputDecoration(labelText: 'PIN 6 digit'),
+              ),
+              TextField(
+                controller: confirmController,
+                keyboardType: TextInputType.number,
+                obscureText: true,
+                maxLength: 6,
+                decoration: const InputDecoration(labelText: 'Konfirmasi PIN'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal'),
+            ),
+            // ignore: use_build_context_synchronously
+            FilledButton(
+              // ignore: use_build_context_synchronously
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(ctx);
+                final p = pinController.text.trim();
+                final c = confirmController.text.trim();
+                if (p.length != 6 || !RegExp(r'^\d{6}$').hasMatch(p)) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('PIN harus 6 digit angka.')),
+                  );
+                  return;
+                }
+                if (p != c) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Konfirmasi PIN tidak cocok.'),
+                    ),
+                  );
+                  return;
+                }
+                // Call backend to set PIN
+                try {
+                  final resp = await postJsonWithFallback(
+                    path: '/auth/set-pin',
+                    body: jsonEncode({
+                      'identifier': _emailController.text.trim(),
+                      'pin': p,
+                    }),
+                  );
+                  if (resp.statusCode >= 200 && resp.statusCode < 300) {
+                    await PinGate.savePinForAliases(
+                      email: _emailController.text.trim(),
+                      username: _usernameController.text.trim(),
+                      pin: p,
+                    );
+                    // ignore: use_build_context_synchronously
+                    Navigator.pop(ctx, true);
+                    return;
+                  }
+                } catch (_) {}
+
+                // fallback: save locally only
+                await PinGate.savePinForAliases(
+                  email: _emailController.text.trim(),
+                  username: _usernameController.text.trim(),
+                  pin: p,
+                );
+                // ignore: use_build_context_synchronously
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('Simpan PIN'),
+            ),
+          ],
+        );
+      },
+    );
+
+    pinController.dispose();
+    confirmController.dispose();
+    return;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Register')),
+      appBar: AppBar(title: const Text('Buat Akun')),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              children: [
-                TextFormField(
-                  controller: _usernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFF8F5EF), Color(0xFFFDFCF8)],
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.brown.withValues(alpha: 0.08),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Image.asset(
+                          _brandLogoAsset,
+                          width: 78,
+                          height: 78,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Buat akun Daurin',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Setelah daftar, kamu langsung login lalu diminta membuat PIN untuk keamanan.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Username wajib diisi';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.email),
+                  const SizedBox(height: 18),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _usernameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Username',
+                              prefixIcon: Icon(Icons.person),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Username wajib diisi';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              prefixIcon: Icon(Icons.email),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Email wajib diisi';
+                              }
+                              if (!value.contains('@')) {
+                                return 'Format email tidak valid';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'No Telp',
+                              prefixIcon: Icon(Icons.phone),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'No telp wajib diisi';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: const Icon(Icons.lock),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Password wajib diisi';
+                              }
+                              if (value.length < 6) {
+                                return 'Password minimal 6 karakter';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            obscureText: _obscureConfirmPassword,
+                            decoration: InputDecoration(
+                              labelText: 'Re-enter Password',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirmPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscureConfirmPassword =
+                                        !_obscureConfirmPassword;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Konfirmasi password wajib diisi';
+                              }
+                              if (value != _passwordController.text) {
+                                return 'Password tidak sama';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _register,
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Register'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Email wajib diisi';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Format email tidak valid';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'No Telp',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'No telp wajib diisi';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration:
-                      const InputDecoration(
-                        labelText: 'Password',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.lock),
-                      ).copyWith(
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                      ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Password wajib diisi';
-                    }
-                    if (value.length < 6) {
-                      return 'Password minimal 6 karakter';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: _obscureConfirmPassword,
-                  decoration:
-                      const InputDecoration(
-                        labelText: 'Re-enter Password',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.lock_outline),
-                      ).copyWith(
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscureConfirmPassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscureConfirmPassword =
-                                  !_obscureConfirmPassword;
-                            });
-                          },
-                        ),
-                      ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Konfirmasi password wajib diisi';
-                    }
-                    if (value != _passwordController.text) {
-                      return 'Password tidak sama';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _pinController,
-                  obscureText: _obscurePin,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(6),
-                  ],
-                  decoration:
-                      const InputDecoration(
-                        labelText: 'PIN 6 digit',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.pin),
-                      ).copyWith(
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePin
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePin = !_obscurePin;
-                            });
-                          },
-                        ),
-                      ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'PIN wajib diisi';
-                    }
-                    if (!RegExp(r'^\d{6}$').hasMatch(value.trim())) {
-                      return 'PIN harus 6 angka';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _confirmPinController,
-                  obscureText: _obscureConfirmPin,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(6),
-                  ],
-                  decoration:
-                      const InputDecoration(
-                        labelText: 'Konfirmasi PIN',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.pin_outlined),
-                      ).copyWith(
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscureConfirmPin
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscureConfirmPin = !_obscureConfirmPin;
-                            });
-                          },
-                        ),
-                      ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Konfirmasi PIN wajib diisi';
-                    }
-                    if (value.trim() != _pinController.text.trim()) {
-                      return 'PIN tidak sama';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _register,
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Register'),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
