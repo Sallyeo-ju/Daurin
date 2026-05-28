@@ -1,6 +1,7 @@
 import {
   IsEmail,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Matches,
   MinLength,
@@ -22,9 +23,10 @@ export class RegisterDto {
   @MinLength(6)
   password!: string;
 
+  @IsOptional()
   @IsString()
   @Matches(/^\d{6}$/, {
     message: 'PIN must be exactly 6 digits',
   })
-  pin!: string;
+  pin?: string;
 }

@@ -125,6 +125,9 @@ class _RegisterPageState extends State<RegisterPage> {
           _usernameController.text.trim(),
         );
         await prefs.setString('account_email', _emailController.text.trim());
+        final registerData = jsonDecode(response.body) as Map<String, dynamic>?;
+        final registerToken = registerData?['accessToken']?.toString() ?? '';
+        await prefs.setString('auth_token', registerToken);
 
         // Auto-login after successful registration
         final loginResp = await postJsonWithFallback(
@@ -136,6 +139,9 @@ class _RegisterPageState extends State<RegisterPage> {
         );
 
         if (loginResp.statusCode >= 200 && loginResp.statusCode < 300) {
+          final loginData = jsonDecode(loginResp.body) as Map<String, dynamic>?;
+          final loginToken = loginData?['accessToken']?.toString() ?? '';
+          await prefs.setString('auth_token', loginToken);
           await PinGate.setActiveAccountIdentifier(
             _emailController.text.trim(),
           );

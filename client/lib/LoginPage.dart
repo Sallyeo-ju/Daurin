@@ -141,9 +141,11 @@ class _LoginPageState extends State<LoginPage> {
         if (user is Map<String, dynamic>) {
           final email = user['email']?.toString() ?? '';
           final username = user['username']?.toString() ?? '';
+          final accessToken = data?['accessToken']?.toString() ?? '';
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('account_username', username);
           await prefs.setString('account_email', email);
+          await prefs.setString('auth_token', accessToken);
           if (email.isNotEmpty) {
             await PinGate.setActiveAccountIdentifier(email);
           } else if (username.isNotEmpty) {
@@ -219,6 +221,12 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        final Map<String, dynamic>? googleData =
+            jsonDecode(response.body) as Map<String, dynamic>?;
+        final accessToken = googleData?['accessToken']?.toString() ?? '';
+        await SharedPreferences.getInstance().then((prefs) async {
+          await prefs.setString('auth_token', accessToken);
+        });
         await PinGate.setActiveAccountIdentifier(googleUser.email);
         await _showStatusDialog(
           title: 'Login Berhasil',

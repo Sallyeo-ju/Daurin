@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 const String _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
 const String _defaultHostedBaseUrl = 'https://daurin-production.up.railway.app';
@@ -9,6 +10,7 @@ const String _androidEmulatorHost = 'http://10.0.2.2:3000';
 const String _androidUsbReverseHost = 'http://127.0.0.1:3000';
 const String _lanHost = 'http://192.168.160.1:3000';
 const String _localhostHost = 'http://localhost:3000';
+const String _authTokenKey = 'auth_token';
 const Duration requestTimeout = Duration(seconds: 12);
 const Duration uploadTimeout = Duration(seconds: 60);
 
@@ -78,17 +80,14 @@ Future<http.Response> postJsonWithFallback({
   required String body,
 }) async {
   final hosts = _candidateHosts();
+  final headers = await _jsonHeaders();
 
   Exception? lastError;
 
   for (final host in hosts) {
     try {
       return await http
-          .post(
-            Uri.parse('$host$path'),
-            headers: const {'Content-Type': 'application/json'},
-            body: body,
-          )
+          .post(Uri.parse('$host$path'), headers: headers, body: body)
           .timeout(requestTimeout);
     } on Exception catch (error) {
       lastError = error;
@@ -102,16 +101,14 @@ Future<http.Response> postJsonWithFallback({
 
 Future<http.Response> getJsonWithFallback({required String path}) async {
   final hosts = _candidateHosts();
+  final headers = await _jsonHeaders();
 
   Exception? lastError;
 
   for (final host in hosts) {
     try {
       return await http
-          .get(
-            Uri.parse('$host$path'),
-            headers: const {'Content-Type': 'application/json'},
-          )
+          .get(Uri.parse('$host$path'), headers: headers)
           .timeout(requestTimeout);
     } on Exception catch (error) {
       lastError = error;
@@ -128,17 +125,14 @@ Future<http.Response> patchJsonWithFallback({
   required String body,
 }) async {
   final hosts = _candidateHosts();
+  final headers = await _jsonHeaders();
 
   Exception? lastError;
 
   for (final host in hosts) {
     try {
       return await http
-          .patch(
-            Uri.parse('$host$path'),
-            headers: const {'Content-Type': 'application/json'},
-            body: body,
-          )
+          .patch(Uri.parse('$host$path'), headers: headers, body: body)
           .timeout(requestTimeout);
     } on Exception catch (error) {
       lastError = error;
@@ -150,20 +144,16 @@ Future<http.Response> patchJsonWithFallback({
   );
 }
 
-Future<http.Response> deleteJsonWithFallback({
-  required String path,
-}) async {
+Future<http.Response> deleteJsonWithFallback({required String path}) async {
   final hosts = _candidateHosts();
+  final headers = await _jsonHeaders();
 
   Exception? lastError;
 
   for (final host in hosts) {
     try {
       return await http
-          .delete(
-            Uri.parse('$host$path'),
-            headers: const {'Content-Type': 'application/json'},
-          )
+          .delete(Uri.parse('$host$path'), headers: headers)
           .timeout(requestTimeout);
     } on Exception catch (error) {
       lastError = error;
@@ -180,6 +170,7 @@ Future<http.Response> postMultipartItemWithFallback({
   String? photoPath,
 }) async {
   final hosts = _candidateHosts();
+  final authHeaders = await _authHeaders();
 
   Exception? lastError;
 
@@ -187,6 +178,7 @@ Future<http.Response> postMultipartItemWithFallback({
     try {
       final request = http.MultipartRequest('POST', Uri.parse('$host/items'));
       request.fields.addAll(fields);
+      request.headers.addAll(authHeaders);
 
       if (photoPath != null && photoPath.isNotEmpty) {
         request.files.add(
@@ -253,4 +245,39 @@ String _mediaApiHost() {
   }
 
   return primaryApiHost();
+}
+
+Future<Map<String, String>> _jsonHeaders() async {
+  final headers = <String, String>{'Content-Type': 'application/json'};
+  headers.addAll(await _authHeaders());
+  return headers;
+}
+
+Future<Map<String, String>> _authHeaders() async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString(_authTokenKey)?.trim();
+  if (token == null || token.isEmpty) {
+    return <String, String>{};
+  }
+
+  return <String, String>{'Authorization': 'Bearer $token'};
+}
+
+Future<void> saveAuthToken(String? token) async {
+  final prefs = await SharedPreferences.getInstance();
+  final normalizedToken = token?.trim() ?? '';
+  if (normalizedToken.isEmpty) {
+    await prefs.remove(_authTokenKey);
+  } else {
+    await prefs.setString(_authTokenKey, normalizedToken);
+  }
+}
+
+Future<String?> getAuthToken() async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString(_authTokenKey)?.trim();
+  if (token == null || token.isEmpty) {
+    return null;
+  }
+  return token;
 }
