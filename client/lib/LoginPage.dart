@@ -108,7 +108,7 @@ class _LoginPageState extends State<LoginPage> {
             borderRadius: BorderRadius.circular(12),
           ),
           title: Text(title),
-          content: Text(message),
+          content: SingleChildScrollView(child: Text(message)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
@@ -312,7 +312,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 16),
                           const Text(
-                            'Masuk ke Daurin',
+                            'Selamat datang di Daurin',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 22,
@@ -321,7 +321,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Kelola akun, chat seller, dan cek ongkir dengan lebih nyaman.',
+                            'Beri Nilai Untuk yang Tak Terpakai.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13,

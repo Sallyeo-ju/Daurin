@@ -65,7 +65,7 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             ],
           ),
-          content: Text(message),
+          content: SingleChildScrollView(child: Text(message)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
@@ -211,24 +211,28 @@ class _RegisterPageState extends State<RegisterPage> {
       builder: (ctx) {
         return AlertDialog(
           title: const Text('Buat PIN'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: pinController,
-                keyboardType: TextInputType.number,
-                obscureText: true,
-                maxLength: 6,
-                decoration: const InputDecoration(labelText: 'PIN 6 digit'),
-              ),
-              TextField(
-                controller: confirmController,
-                keyboardType: TextInputType.number,
-                obscureText: true,
-                maxLength: 6,
-                decoration: const InputDecoration(labelText: 'Konfirmasi PIN'),
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: pinController,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  maxLength: 6,
+                  decoration: const InputDecoration(labelText: 'PIN 6 digit'),
+                ),
+                TextField(
+                  controller: confirmController,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  maxLength: 6,
+                  decoration: const InputDecoration(
+                    labelText: 'Konfirmasi PIN',
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(

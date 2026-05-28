@@ -419,7 +419,30 @@ class _HomePageState extends State<HomePage> {
 
     // Calculate admin fee (1500 per transaction)
     const int adminFee = 1500;
-    int liveShippingFee = await OngkirService().fetchOngkir();
+    final sellerLocationText = cartItems.isNotEmpty
+        ? (cartItems.first['location']?.toString() ?? '')
+        : '';
+    final buyerLocationText = _accountAddressController.text.trim().isNotEmpty
+        ? _accountAddressController.text.trim()
+        : _detectedLocationText;
+    final originCode = resolveOngkirAreaCode(
+      sellerLocationText.isNotEmpty ? sellerLocationText : buyerLocationText,
+      fallback: '31555',
+    );
+    final destinationCode = resolveOngkirAreaCode(
+      buyerLocationText,
+      fallback: '68423',
+    );
+    final totalQuantity = _cart.fold<int>(
+      0,
+      (sum, item) => sum + item.quantity,
+    );
+    final shippingWeight = (totalQuantity <= 0 ? 1 : totalQuantity) * 1000;
+    int liveShippingFee = await OngkirService().fetchOngkir(
+      origin: originCode,
+      destination: destinationCode,
+      weight: shippingWeight,
+    );
     if (!mounted) return;
     final paid = await Navigator.of(context).push<bool>(
       MaterialPageRoute(

@@ -3,6 +3,40 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'api_client.dart';
 
+const Map<String, String> _knownOngkirAreaCodes = {
+  'jabodetabek': '31555',
+  'west jakarta': '31555',
+  'jakarta barat': '31555',
+  'central jakarta': '31555',
+  'jakarta pusat': '31555',
+  'east jakarta': '31555',
+  'jakarta timur': '31555',
+  'south jakarta': '31555',
+  'jakarta selatan': '31555',
+  'north jakarta': '31555',
+  'jakarta utara': '31555',
+};
+
+String resolveOngkirAreaCode(String locationText, {required String fallback}) {
+  final normalized = locationText.trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return fallback;
+  }
+
+  final codeMatch = RegExp(r'\b\d{5}\b').firstMatch(normalized);
+  if (codeMatch != null) {
+    return codeMatch.group(0)!;
+  }
+
+  for (final entry in _knownOngkirAreaCodes.entries) {
+    if (normalized.contains(entry.key)) {
+      return entry.value;
+    }
+  }
+
+  return fallback;
+}
+
 class OngkirService {
   // Fungsi ini sekarang mengembalikan Future<int> (mengembalikan angka nominal ongkir)
   Future<int> fetchOngkir({

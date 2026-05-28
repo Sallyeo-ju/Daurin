@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 const String _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
+const String _defaultHostedBaseUrl = 'https://daurin-production.up.railway.app';
 const String _androidEmulatorHost = 'http://10.0.2.2:3000';
 const String _androidUsbReverseHost = 'http://127.0.0.1:3000';
 const String _lanHost = 'http://192.168.160.1:3000';
@@ -11,9 +12,17 @@ const String _localhostHost = 'http://localhost:3000';
 const Duration requestTimeout = Duration(seconds: 12);
 const Duration uploadTimeout = Duration(seconds: 60);
 
-String apiBaseUrlForDisplay() {
+String _resolvedBaseUrl() {
   if (_configuredBaseUrl.isNotEmpty) {
     return _configuredBaseUrl;
+  }
+  return _defaultHostedBaseUrl;
+}
+
+String apiBaseUrlForDisplay() {
+  final baseUrl = _resolvedBaseUrl();
+  if (baseUrl.isNotEmpty) {
+    return baseUrl;
   }
   return kReleaseMode ? 'API_BASE_URL belum diset' : primaryApiHost();
 }
@@ -27,8 +36,9 @@ String apiConnectionHint() {
 }
 
 String primaryApiHost() {
-  if (_configuredBaseUrl.isNotEmpty) {
-    return _configuredBaseUrl;
+  final baseUrl = _resolvedBaseUrl();
+  if (baseUrl.isNotEmpty) {
+    return baseUrl;
   }
 
   if (kReleaseMode) {
@@ -52,7 +62,7 @@ String buildApiUrl(String path) {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
   }
-  if (kReleaseMode && _configuredBaseUrl.isEmpty) {
+  if (kReleaseMode && _resolvedBaseUrl().isEmpty) {
     throw StateError(
       'API_BASE_URL belum diset. Release build harus memakai backend production HTTPS.',
     );
@@ -145,8 +155,9 @@ Future<http.Response> postMultipartItemWithFallback({
 }
 
 List<String> _candidateHosts() {
-  if (_configuredBaseUrl.isNotEmpty) {
-    return <String>[_configuredBaseUrl];
+  final baseUrl = _resolvedBaseUrl();
+  if (baseUrl.isNotEmpty) {
+    return <String>[baseUrl];
   }
 
   if (kReleaseMode) {
@@ -170,8 +181,9 @@ List<String> _candidateHosts() {
 }
 
 String _mediaApiHost() {
-  if (_configuredBaseUrl.isNotEmpty) {
-    return _configuredBaseUrl;
+  final baseUrl = _resolvedBaseUrl();
+  if (baseUrl.isNotEmpty) {
+    return baseUrl;
   }
 
   if (kReleaseMode) {

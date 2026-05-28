@@ -56,10 +56,17 @@ function sanitizeMongoUri(uri: string): string {
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        uri: sanitizeMongoUri(
-          configService.get<string>('MONGODB_URI') ??
-          'mongodb://127.0.0.1:27017/daurin',
-        ),
+        uri: (() => {
+          const mongoUri = configService.get<string>('MONGODB_URI')?.trim();
+
+          if (!mongoUri) {
+            throw new Error(
+              'MONGODB_URI is missing. Set it in Railway Variables for the production service.',
+            );
+          }
+
+          return sanitizeMongoUri(mongoUri);
+        })(),
         // Increase timeouts to allow for slower network / SRV resolution
         serverSelectionTimeoutMS: 20000,
         connectTimeoutMS: 20000,
