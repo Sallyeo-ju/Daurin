@@ -79,7 +79,9 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _isGoogleLoading = false;
-  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId: '842210818086-c05k5hpkj46m8mge2km51ss2irql4c57.apps.googleusercontent.com',
+  );
   late final Future<void> _googleSignInInit = _googleSignIn.initialize();
   bool _obscurePassword = true;
 
@@ -393,8 +395,8 @@ class _LoginPageState extends State<LoginPage> {
                                   builder: (_) => RegisterPage(
                                     initialEmail:
                                         _identifierController.text.contains('@')
-                                            ? _identifierController.text
-                                            : '',
+                                        ? _identifierController.text
+                                        : '',
                                   ),
                                 ),
                               ),

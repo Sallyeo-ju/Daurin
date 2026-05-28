@@ -22,16 +22,17 @@ void main() {
 ThemeData _buildLightTheme() {
   final base = ThemeData.light(useMaterial3: true);
   return base.copyWith(
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: _warmBrown,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: _warmBrown,
-      secondary: _freshGreen,
-      tertiary: const Color(0xFF9BBE74),
-      surface: Colors.white,
-      surfaceContainerHighest: const Color(0xFFF1E9DD),
-    ),
+    colorScheme:
+        ColorScheme.fromSeed(
+          seedColor: _warmBrown,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: _warmBrown,
+          secondary: _freshGreen,
+          tertiary: const Color(0xFF9BBE74),
+          surface: Colors.white,
+          surfaceContainerHighest: const Color(0xFFF1E9DD),
+        ),
     scaffoldBackgroundColor: _warmCream,
     appBarTheme: AppBarTheme(
       backgroundColor: _warmCream,
@@ -93,16 +94,17 @@ ThemeData _buildLightTheme() {
 ThemeData _buildDarkTheme() {
   final base = ThemeData.dark(useMaterial3: true);
   return base.copyWith(
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: _warmBrown,
-      brightness: Brightness.dark,
-    ).copyWith(
-      primary: const Color(0xFFD1B08A),
-      secondary: const Color(0xFF93C47D),
-      tertiary: const Color(0xFFBCD99C),
-      surface: const Color(0xFF1B1F1A),
-      surfaceContainerHighest: const Color(0xFF242A23),
-    ),
+    colorScheme:
+        ColorScheme.fromSeed(
+          seedColor: _warmBrown,
+          brightness: Brightness.dark,
+        ).copyWith(
+          primary: const Color(0xFFD1B08A),
+          secondary: const Color(0xFF93C47D),
+          tertiary: const Color(0xFFBCD99C),
+          surface: const Color(0xFF1B1F1A),
+          surfaceContainerHighest: const Color(0xFF242A23),
+        ),
     scaffoldBackgroundColor: const Color(0xFF111611),
     appBarTheme: const AppBarTheme(
       backgroundColor: Color(0xFF111611),
@@ -262,9 +264,18 @@ class _MyHomePageState extends State<MyHomePage> {
                             spacing: 8,
                             runSpacing: 8,
                             children: const [
-                              _Badge(label: 'Putih bersih', color: Color(0xFFFFFFFF)),
-                              _Badge(label: 'Hijau segar', color: Color(0xFFE7F2DF)),
-                              _Badge(label: 'Coklat hangat', color: Color(0xFFF0E2D2)),
+                              _Badge(
+                                label: 'Putih bersih',
+                                color: Color(0xFFFFFFFF),
+                              ),
+                              _Badge(
+                                label: 'Hijau segar',
+                                color: Color(0xFFE7F2DF),
+                              ),
+                              _Badge(
+                                label: 'Coklat hangat',
+                                color: Color(0xFFF0E2D2),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 28),
@@ -290,7 +301,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => const RegisterPage(),
+                                        builder: (context) =>
+                                            const RegisterPage(),
                                       ),
                                     );
                                   },
