@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 
-/// Chat page that uses seller-based threading instead of product-based.
 class ChatPage extends StatefulWidget {
   const ChatPage({
     super.key,
@@ -38,7 +37,6 @@ class _ChatPageState extends State<ChatPage> {
   final List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
-  bool _useBackend = false;
 
   @override
   void initState() {
@@ -62,9 +60,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _loadConversation() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     if (_hasRemoteContext) {
       try {
@@ -73,125 +69,70 @@ class _ChatPageState extends State<ChatPage> {
         );
         if (response.statusCode >= 200 && response.statusCode < 300) {
           final decoded = jsonDecode(response.body);
-          final messages = _parseMessages(decoded);
-          if (!mounted) return;
-          setState(() {
-            _messages
-              ..clear()
-              ..addAll(messages);
-            _useBackend = true;
-            _isLoading = false;
-          });
-          if (_messages.isNotEmpty) return;
+          if (decoded is List) {
+            if (!mounted) return;
+            setState(() {
+              _messages.clear();
+              for (final msg in decoded) {
+                if (msg is Map<String, dynamic>) {
+                  _messages.add(_normalizeMessage(msg));
+                }
+              }
+              _isLoading = false;
+            });
+            return;
+          }
         }
-      } catch (_) {
-        // Fall back to local storage below.
-      }
+      } catch (_) {}
     }
 
-    await _loadLocalMessages();
     if (!mounted) return;
-    setState(() {
-      _useBackend = false;
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
   }
 
-  Future<void> _loadLocalMessages() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('chat_thread_$_threadId');
-    if (raw != null && raw.isNotEmpty) {
-      try {
-        final parsed = jsonDecode(raw) as List<dynamic>;
-        _messages
-          ..clear()
-          ..addAll(parsed.whereType<Map<String, dynamic>>());
-      } catch (_) {
-        _messages.clear();
-      }
-    } else {
-      _messages.clear();
-    }
-  }
-
-  Future<void> _saveLocalMessages() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('chat_thread_$_threadId', jsonEncode(_messages));
-  }
-
-  List<Map<String, dynamic>> _parseMessages(dynamic decoded) {
-    final items = <Map<String, dynamic>>[];
-    if (decoded is List) {
-      for (final entry in decoded) {
-        if (entry is Map<String, dynamic>) {
-          items.add(_normalizeBackendMessage(entry));
-        }
-      }
-    }
-    return items;
-  }
-
-  Map<String, dynamic> _normalizeBackendMessage(Map<String, dynamic> message) {
-    final senderEmail = message['senderEmail']?.toString() ?? '';
+  Map<String, dynamic> _normalizeMessage(Map<String, dynamic> msg) {
+    final senderEmail = msg['senderEmail']?.toString() ?? '';
     final buyerEmail = widget.buyerEmail?.trim().toLowerCase() ?? '';
-    final sellerEmail = widget.sellerEmail?.trim().toLowerCase() ?? '';
-    final isUser = buyerEmail.isNotEmpty
-        ? senderEmail.trim().toLowerCase() == buyerEmail
-        : senderEmail.trim().toLowerCase() != sellerEmail;
+    final isUser = senderEmail.trim().toLowerCase() == buyerEmail;
 
     return {
-      'text': message['text']?.toString() ?? '',
+      'text': msg['text']?.toString() ?? '',
       'isUser': isUser,
-      'time': _formatTime(message['sentAt'] ?? message['createdAt']),
+      'time': _formatTime(msg['sentAt']),
     };
   }
 
   String _formatTime(dynamic value) {
     if (value == null) return '';
-    final text = value.toString();
-    if (text.isEmpty) return '';
     try {
-      final parsed = DateTime.parse(text).toLocal();
-      final hour = parsed.hour.toString().padLeft(2, '0');
-      final minute = parsed.minute.toString().padLeft(2, '0');
-      return '$hour:$minute';
+      final parsed = DateTime.parse(value.toString()).toLocal();
+      return '${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}';
     } catch (_) {
-      return text;
+      return '';
     }
   }
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
-    final time = TimeOfDay.now().format(context);
 
     final prefs = await SharedPreferences.getInstance();
-    final senderName =
-        prefs.getString('account_username')?.trim().isNotEmpty == true
-            ? prefs.getString('account_username')!.trim()
-            : (widget.buyerName?.trim().isNotEmpty == true
-                ? widget.buyerName!.trim()
-                : (widget.sellerName?.trim().isNotEmpty == true
-                    ? widget.sellerName!.trim()
-                    : 'User'));
-    final senderEmail =
-        prefs.getString('account_email')?.trim().isNotEmpty == true
-            ? prefs.getString('account_email')!.trim().toLowerCase()
-            : (widget.buyerEmail?.trim().isNotEmpty == true
-                ? widget.buyerEmail!.trim().toLowerCase()
-                : (widget.sellerEmail?.trim().isNotEmpty == true
-                    ? widget.sellerEmail!.trim().toLowerCase()
-                    : ''));
+    final senderName = prefs.getString('account_username') ?? 'User';
+    final senderEmail = prefs.getString('account_email') ?? '';
 
     setState(() {
-      _messages.add({'text': text, 'isUser': true, 'time': time});
+      _messages.add({
+        'text': text,
+        'isUser': true,
+        'time': TimeOfDay.now().format(context),
+      });
       _messageController.clear();
       _isSending = true;
     });
 
     try {
-      if (_useBackend && _hasRemoteContext && senderEmail.isNotEmpty) {
-        final response = await postJsonWithFallback(
+      if (_hasRemoteContext && senderEmail.isNotEmpty) {
+        await postJsonWithFallback(
           path: '/chat/messages',
           body: jsonEncode({
             'threadId': _threadId,
@@ -206,71 +147,17 @@ class _ChatPageState extends State<ChatPage> {
             'text': text,
           }),
         );
-
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          throw Exception('Gagal mengirim pesan ke server.');
-        }
-
-        final decoded = jsonDecode(response.body);
-        if (decoded is Map<String, dynamic> &&
-            decoded['message'] is Map<String, dynamic>) {
-          final message = _normalizeBackendMessage(
-            decoded['message'] as Map<String, dynamic>,
-          );
-          if (mounted) {
-            setState(() {
-              _messages.removeLast();
-              _messages.add(message);
-            });
-          }
-        }
-      } else {
-        await _saveLocalMessages();
       }
-    } catch (_) {
-      // If backend send fails, keep the local message so the chat still works offline.
-      await _saveLocalMessages();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     } finally {
       if (mounted) {
-        setState(() {
-          _isSending = false;
-        });
+        setState(() => _isSending = false);
       }
     }
-  }
-
-  Widget _buildBubble(Map<String, dynamic> message) {
-    final isUser = message['isUser'] == true;
-    final alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
-    final color = isUser ? Colors.green.shade100 : Colors.grey.shade200;
-    final textColor = Colors.black87;
-
-    return Align(
-      alignment: alignment,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment:
-              isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            Text(message['text'] ?? '', style: TextStyle(color: textColor)),
-            const SizedBox(height: 6),
-            Text(
-              message['time'] ?? '',
-              style: TextStyle(
-                color: textColor.withAlpha((0.7 * 255).round()),
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
@@ -280,39 +167,55 @@ class _ChatPageState extends State<ChatPage> {
       appBar: AppBar(title: Text(title)),
       body: Column(
         children: [
-          if (_hasRemoteContext)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.green.shade100),
-                ),
-                child: Text(
-                  'Chat dengan penjual ${widget.sellerUsername ?? widget.sellerName ?? ''}'
-                      .trim(),
-                  style: TextStyle(color: Colors.green.shade800),
-                ),
-              ),
-            ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _messages.isEmpty
-                ? Center(
-                    child: Text(
-                      'No messages yet',
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _messages.length,
-                    itemBuilder: (ctx, i) => _buildBubble(_messages[i]),
-                  ),
+                    ? Center(
+                        child: Text(
+                          'No messages yet',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: _messages.length,
+                        itemBuilder: (ctx, i) {
+                          final msg = _messages[i];
+                          final isUser = msg['isUser'] == true;
+                          return Align(
+                            alignment: isUser
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(
+                                vertical: 6,
+                                horizontal: 12,
+                              ),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isUser
+                                    ? Colors.green.shade100
+                                    : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: isUser
+                                    ? CrossAxisAlignment.end
+                                    : CrossAxisAlignment.start,
+                                children: [
+                                  Text(msg['text'] ?? ''),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    msg['time'] ?? '',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
           ),
           SafeArea(
             child: Row(
@@ -329,9 +232,7 @@ class _ChatPageState extends State<ChatPage> {
                         hintText: 'Type a message...',
                       ),
                       onSubmitted: (_) {
-                        if (!_isSending) {
-                          _sendMessage();
-                        }
+                        if (!_isSending) _sendMessage();
                       },
                     ),
                   ),

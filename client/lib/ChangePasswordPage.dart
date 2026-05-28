@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 
@@ -37,24 +36,11 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     final newPassword = _newPasswordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
 
-    // Validation
-    if (currentPassword.isEmpty) {
+    if (currentPassword.isEmpty ||
+        newPassword.isEmpty ||
+        confirmPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password lama tidak boleh kosong')),
-      );
-      return;
-    }
-
-    if (newPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password baru tidak boleh kosong')),
-      );
-      return;
-    }
-
-    if (confirmPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Konfirmasi password tidak boleh kosong')),
+        const SnackBar(content: Text('Semua field harus diisi')),
       );
       return;
     }
@@ -94,8 +80,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         );
         Navigator.of(context).pop();
       } else {
-        final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Gagal mengubah password');
+        throw Exception('Gagal mengubah password');
       }
     } catch (e) {
       if (!mounted) return;
@@ -116,8 +101,6 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         child: Column(
           children: [
             const SizedBox(height: 24),
-
-            // Current Password
             TextField(
               controller: _currentPasswordController,
               obscureText: !_showCurrentPassword,
@@ -139,8 +122,6 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // New Password
             TextField(
               controller: _newPasswordController,
               obscureText: !_showNewPassword,
@@ -158,8 +139,6 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Confirm Password
             TextField(
               controller: _confirmPasswordController,
               obscureText: !_showConfirmPassword,
@@ -181,8 +160,6 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
               ),
             ),
             const SizedBox(height: 32),
-
-            // Change Password Button
             SizedBox(
               width: double.infinity,
               child: FilledButton(

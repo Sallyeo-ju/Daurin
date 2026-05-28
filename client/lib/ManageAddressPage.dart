@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 
@@ -74,28 +73,30 @@ class _ManageAddressesPageState extends State<ManageAddressesPage> {
             .map((a) => Address.fromJson(a as Map<String, dynamic>))
             .toList();
 
+        if (!mounted) return;
         setState(() => _addresses = addresses);
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading addresses: $e')),
+        SnackBar(content: Text('Error: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _deleteAddress(int index) async {
     try {
-      final response = await http.delete(
-        Uri.parse('${buildApiUrl('/auth/addresses/$index')}'),
-        headers: const {'Content-Type': 'application/json'},
+      final response = await deleteJsonWithFallback(
+        path: '/auth/addresses/$index',
       );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        setState(() => _addresses.removeAt(index));
         if (!mounted) return;
+        setState(() => _addresses.removeAt(index));
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Alamat berhasil dihapus')),
         );
@@ -110,12 +111,14 @@ class _ManageAddressesPageState extends State<ManageAddressesPage> {
 
   void _showAddressForm({int? editIndex}) {
     final isEditing = editIndex != null;
-    final address = isEditing ? _addresses[editIndex] : Address(
-      street: '',
-      city: '',
-      province: '',
-      postalCode: '',
-    );
+    final address = isEditing
+        ? _addresses[editIndex]
+        : Address(
+            street: '',
+            city: '',
+            province: '',
+            postalCode: '',
+          );
 
     final streetController = TextEditingController(text: address.street);
     final cityController = TextEditingController(text: address.city);
@@ -238,29 +241,15 @@ class _ManageAddressesPageState extends State<ManageAddressesPage> {
 
                           try {
                             if (isEditing) {
-                              final response = await postJsonWithFallback(
+                              await patchJsonWithFallback(
                                 path: '/auth/addresses/$editIndex',
                                 body: jsonEncode(newAddress.toJson()),
                               );
-
-                              if (response.statusCode >= 200 &&
-                                  response.statusCode < 300) {
-                                setState(() {
-                                  _addresses[editIndex] = newAddress;
-                                });
-                              }
                             } else {
-                              final response = await postJsonWithFallback(
+                              await postJsonWithFallback(
                                 path: '/auth/addresses',
                                 body: jsonEncode(newAddress.toJson()),
                               );
-
-                              if (response.statusCode >= 200 &&
-                                  response.statusCode < 300) {
-                                setState(() {
-                                  _addresses.add(newAddress);
-                                });
-                              }
                             }
 
                             if (!mounted) return;

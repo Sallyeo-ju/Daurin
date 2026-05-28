@@ -22,27 +22,29 @@ class Voucher {
   final bool isUsed;
 
   Voucher copyWith({
-    String? id,
-    String? title,
-    String? description,
-    int? discountPercent,
-    String? expiresOn,
-    int? minCartValue,
-    String? requiredCategory,
-    bool? isUsed,
-  }) {
-    return Voucher(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      discountPercent: discountPercent ?? this.discountPercent,
-      expiresOn: expiresOn ?? this.expiresOn,
-      minCartValue: minCartValue ?? this.minCartValue,
-      requiredCategory: requiredCategory ?? this.requiredCategory,
-      isUsed: isUsed ?? this.isUsed,
-    );
-  }
+  String? id,
+  String? title,
+  String? description,
+  int? discountPercent,
+  String? expiresOn,
+  int? minCartValue,
+  String? requiredCategory,
+  bool? isUsed,
+}) {
+  return Voucher(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    description: description ?? this.description,
+    discountPercent: discountPercent ?? this.discountPercent,
+    expiresOn: expiresOn ?? this.expiresOn,
+    minCartValue: minCartValue ?? this.minCartValue,
+    requiredCategory: requiredCategory ?? this.requiredCategory,
+    isUsed: isUsed ?? this.isUsed,
+  );
 }
+}
+
+
 
 class AccountPage extends StatelessWidget {
   const AccountPage({
@@ -105,7 +107,7 @@ class AccountPage extends StatelessWidget {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                if (recommendedVoucher != null) ...{
+                if (recommendedVoucher != null)
                   ListTile(
                     title: Text('Rekomendasi: ${recommendedVoucher!.title}'),
                     subtitle: Text(recommendedVoucher!.description),
@@ -116,8 +118,6 @@ class AccountPage extends StatelessWidget {
                       child: const Text('Gunakan'),
                     ),
                   ),
-                  const Divider(),
-                },
                 if (vouchers.isNotEmpty)
                   ...vouchers.map(
                     (v) => ListTile(
@@ -154,7 +154,6 @@ class AccountPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Profile Header
               Row(
                 children: [
                   CircleAvatar(
@@ -196,71 +195,48 @@ class AccountPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
-
-              // Dark Mode Toggle
               SwitchListTile.adaptive(
                 value: isDarkMode,
                 onChanged: onToggleDarkMode,
                 title: const Text('Dark Mode'),
               ),
               const Divider(),
-
-              // Voucher
               ListTile(
                 leading: const Icon(Icons.confirmation_number_outlined),
                 title: const Text('Voucher Diskon'),
-                subtitle: const Text('Lihat dan pakai voucher aktif'),
                 onTap: () => _showVoucherSheet(context),
               ),
-
-              // Detect Location
               ListTile(
                 leading: const Icon(Icons.my_location),
                 title: const Text('Detect Location'),
                 onTap: onDetectLocation,
               ),
-
-              // Edit Profile
               ListTile(
                 leading: const Icon(Icons.edit),
                 title: const Text('Edit Profile'),
-                subtitle: const Text('Ubah foto profil dan informasi'),
                 onTap: onEditProfile,
               ),
-
-              // Change Password
               ListTile(
                 leading: const Icon(Icons.lock),
                 title: const Text('Change Password'),
-                subtitle: const Text('Ubah password akun Anda'),
                 onTap: onChangePassword,
               ),
-
-              // Manage Addresses
               ListTile(
                 leading: const Icon(Icons.location_on),
                 title: const Text('Manage Addresses'),
-                subtitle: const Text('Kelola alamat pengiriman'),
                 onTap: onManageAddresses,
               ),
-
-              // About Us
               ListTile(
                 leading: const Icon(Icons.info_outline),
                 title: const Text('About Us'),
                 onTap: onAboutUs,
               ),
-
-              // FAQ
               ListTile(
                 leading: const Icon(Icons.help_outline),
                 title: const Text('FAQ'),
                 onTap: onFaq,
               ),
-
               const SizedBox(height: 16),
-
-              // Logout Button
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(

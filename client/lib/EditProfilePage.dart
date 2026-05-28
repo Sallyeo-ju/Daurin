@@ -1,11 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'api_client.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({
@@ -13,14 +10,12 @@ class EditProfilePage extends StatefulWidget {
     required this.username,
     required this.email,
     required this.phoneNumber,
-    required this.profilePictureUrl,
     required this.onProfileUpdated,
   });
 
   final String username;
   final String email;
   final String phoneNumber;
-  final String? profilePictureUrl;
   final VoidCallback onProfileUpdated;
 
   @override
@@ -32,7 +27,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
   File? _selectedImage;
-  String? _profilePictureUrl;
   bool _isLoading = false;
 
   @override
@@ -41,7 +35,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _usernameController = TextEditingController(text: widget.username);
     _emailController = TextEditingController(text: widget.email);
     _phoneController = TextEditingController(text: widget.phoneNumber);
-    _profilePictureUrl = widget.profilePictureUrl;
   }
 
   @override
@@ -63,50 +56,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  Future<void> _uploadProfilePicture() async {
-    if (_selectedImage == null) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      // TODO: Implement image upload to your backend or cloud storage
-      // For now, we'll just show a success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Foto profil berhasil diubah')),
-      );
-
-      setState(() {
-        _profilePictureUrl = _selectedImage!.path;
-        _selectedImage = null;
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
   Future<void> _saveProfile() async {
     setState(() => _isLoading = true);
 
     try {
       final prefs = await SharedPreferences.getInstance();
-
-      // Update local storage
       await prefs.setString('account_username', _usernameController.text);
-      await prefs.setString('account_email', _emailController.text);
       await prefs.setString('account_phone', _phoneController.text);
-
-      // TODO: Send update to backend
-      // await postJsonWithFallback(
-      //   path: '/auth/profile',
-      //   body: jsonEncode({
-      //     'username': _usernameController.text,
-      //     'phoneNumber': _phoneController.text,
-      //   }),
-      // );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -116,6 +72,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       widget.onProfileUpdated();
       Navigator.of(context).pop();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -132,7 +89,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Profile Picture
             Center(
               child: Stack(
                 children: [
@@ -140,13 +96,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     radius: 60,
                     backgroundImage: _selectedImage != null
                         ? FileImage(_selectedImage!)
-                        : (_profilePictureUrl != null &&
-                                _profilePictureUrl!.isNotEmpty
-                            ? NetworkImage(_profilePictureUrl!)
-                            : null),
-                    child: _selectedImage == null &&
-                            (_profilePictureUrl == null ||
-                                _profilePictureUrl!.isEmpty)
+                        : null,
+                    child: _selectedImage == null
                         ? Text(
                             widget.username.isNotEmpty
                                 ? widget.username[0].toUpperCase()
@@ -166,26 +117,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-
-            // Upload Picture Button
-            if (_selectedImage != null)
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _isLoading ? null : _uploadProfilePicture,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Upload Foto'),
-                ),
-              ),
             const SizedBox(height: 24),
-
-            // Username
             TextField(
               controller: _usernameController,
               decoration: const InputDecoration(
@@ -194,8 +126,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Email (read-only)
             TextField(
               controller: _emailController,
               enabled: false,
@@ -205,8 +135,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Phone Number
             TextField(
               controller: _phoneController,
               decoration: const InputDecoration(
@@ -216,8 +144,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 24),
-
-            // Save Button
             SizedBox(
               width: double.infinity,
               child: FilledButton(

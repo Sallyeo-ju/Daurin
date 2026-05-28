@@ -52,22 +52,25 @@ class _PaymentPageState extends State<PaymentPage> {
     final threadId = hasSellerContext
         ? '${itemId.toLowerCase()}__${sellerEmail.toLowerCase()}__${buyerEmail.toLowerCase()}'
         : null;
+    final sellerId = firstItem?['itemId']?.toString().trim() ?? '';
+    final sellerUsername = firstItem?['sellerName']?.toString().trim() ?? '';
 
-    if (!context.mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ChatPage(
-          threadId: threadId,
-          itemId: itemId.isNotEmpty ? itemId : null,
-          itemName: itemName.isNotEmpty ? itemName : null,
-          sellerName: sellerName.isNotEmpty ? sellerName : null,
-          sellerEmail: sellerEmail.isNotEmpty ? sellerEmail : null,
-          buyerName: buyerName.isNotEmpty ? buyerName : null,
-          buyerEmail: buyerEmail.isNotEmpty ? buyerEmail : null,
-          draftMode: !hasSellerContext,
-        ),
-      ),
-    );
+// ... later in the ChatPage call:
+
+await Navigator.of(context).push(
+  MaterialPageRoute(
+    builder: (_) => ChatPage(
+      threadId: threadId,
+      sellerId: sellerId.isNotEmpty ? sellerId : null,
+      sellerUsername: sellerUsername.isNotEmpty ? sellerUsername : null,
+      sellerName: sellerName.isNotEmpty ? sellerName : null,
+      sellerEmail: sellerEmail.isNotEmpty ? sellerEmail : null,
+      buyerName: buyerName.isNotEmpty ? buyerName : null,
+      buyerEmail: buyerEmail.isNotEmpty ? buyerEmail : null,
+      draftMode: !hasSellerContext,
+    ),
+  ),
+);
   }
 
   Future<void> _goToCheckout(BuildContext context) async {

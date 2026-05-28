@@ -123,6 +123,58 @@ Future<http.Response> getJsonWithFallback({required String path}) async {
   );
 }
 
+Future<http.Response> patchJsonWithFallback({
+  required String path,
+  required String body,
+}) async {
+  final hosts = _candidateHosts();
+
+  Exception? lastError;
+
+  for (final host in hosts) {
+    try {
+      return await http
+          .patch(
+            Uri.parse('$host$path'),
+            headers: const {'Content-Type': 'application/json'},
+            body: body,
+          )
+          .timeout(requestTimeout);
+    } on Exception catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw Exception(
+    '${lastError ?? Exception('Unable to reach server')}. ${apiConnectionHint()}',
+  );
+}
+
+Future<http.Response> deleteJsonWithFallback({
+  required String path,
+}) async {
+  final hosts = _candidateHosts();
+
+  Exception? lastError;
+
+  for (final host in hosts) {
+    try {
+      return await http
+          .delete(
+            Uri.parse('$host$path'),
+            headers: const {'Content-Type': 'application/json'},
+          )
+          .timeout(requestTimeout);
+    } on Exception catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw Exception(
+    '${lastError ?? Exception('Unable to reach server')}. ${apiConnectionHint()}',
+  );
+}
+
 Future<http.Response> postMultipartItemWithFallback({
   required Map<String, String> fields,
   String? photoPath,

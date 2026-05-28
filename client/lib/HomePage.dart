@@ -16,6 +16,9 @@ import 'HistoryPage.dart';
 import 'pin_gate.dart';
 import 'app_theme_controller.dart';
 import 'ShippingFee.dart';
+import 'EditProfilePage.dart';
+import 'ChangePasswordPage.dart';
+import 'ManageAddressesPage.dart';
 
 const String _brandLogoAsset = 'assets/images/Logo.jpeg';
 
@@ -636,8 +639,8 @@ class _HomePageState extends State<HomePage> {
       MaterialPageRoute(
         builder: (_) => ChatPage(
           threadId: threadId,
-          itemId: item.id,
-          itemName: item.name,
+          sellerId: item.id,
+          sellerUsername: item.sellerName ?? 'Chat baru',
           sellerName: sellerName ?? 'Chat baru',
           sellerEmail: sellerEmail,
           buyerName: buyerName,
