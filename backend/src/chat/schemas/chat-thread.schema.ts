@@ -9,10 +9,10 @@ export class ChatThread {
   threadId!: string;
 
   @Prop({ required: true, trim: true })
-  itemId!: string;
+  sellerId!: string;
 
-  @Prop({ required: false, trim: true })
-  itemName?: string;
+  @Prop({ required: true, trim: true })
+  sellerUsername!: string;
 
   @Prop({ required: true, trim: true })
   sellerName!: string;

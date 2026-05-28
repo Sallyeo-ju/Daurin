@@ -1,37 +1,65 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Controller, Post, Patch, Get, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { VerifyPinDto } from './dto/verify-pin.dto';
-import { SetPinDto } from './dto/set-pin.dto';
-import { GoogleAuthDto } from './dto/google-auth.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard'; // Adjust path if needed
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { CreateAddressDto } from './dto/create-address.dto';
+import { UpdateAddressDto } from './dto/update-address.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('register')
-  register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+  // ... existing endpoints ...
+
+  @Patch('profile/picture')
+  @UseGuards(JwtAuthGuard)
+  async updateProfilePicture(
+    @Request() req: any,
+    @Body() body: { imageUrl: string },
+  ) {
+    return this.authService.updateProfilePicture(req.user.id, body.imageUrl);
   }
 
-  @Post('login')
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @Request() req: any,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(req.user.id, dto);
   }
 
-  @Post('google')
-  google(@Body() dto: GoogleAuthDto) {
-    return this.authService.googleLogin(dto);
+  @Post('addresses')
+  @UseGuards(JwtAuthGuard)
+  async createAddress(
+    @Request() req: any,
+    @Body() dto: CreateAddressDto,
+  ) {
+    return this.authService.createAddress(req.user.id, dto);
   }
 
-  @Post('verify-pin')
-  verifyPin(@Body() verifyPinDto: VerifyPinDto) {
-    return this.authService.verifyPin(verifyPinDto);
+  @Get('addresses')
+  @UseGuards(JwtAuthGuard)
+  async getAddresses(@Request() req: any) {
+    return this.authService.getAddresses(req.user.id);
   }
 
-  @Post('set-pin')
-  setPin(@Body() dto: SetPinDto) {
-    return this.authService.setPin(dto);
+  @Patch('addresses/:index')
+  @UseGuards(JwtAuthGuard)
+  async updateAddress(
+    @Request() req: any,
+    @Param('index') index: string,
+    @Body() dto: UpdateAddressDto,
+  ) {
+    return this.authService.updateAddress(req.user.id, parseInt(index), dto);
+  }
+
+  @Delete('addresses/:index')
+  @UseGuards(JwtAuthGuard)
+  async deleteAddress(
+    @Request() req: any,
+    @Param('index') index: string,
+  ) {
+    return this.authService.deleteAddress(req.user.id, parseInt(index));
   }
 }

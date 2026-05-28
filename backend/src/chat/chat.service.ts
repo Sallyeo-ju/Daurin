@@ -25,8 +25,8 @@ export class ChatService {
         {
           $set: {
             threadId,
-            itemId: dto.itemId.trim(),
-            itemName: dto.itemName?.trim() || dto.itemId.trim(),
+            sellerId: dto.sellerId.trim(),
+            sellerUsername: dto.sellerUsername.trim(),
             sellerName: dto.sellerName.trim(),
             sellerEmail: this.normalizeEmail(dto.sellerEmail),
             buyerName: dto.buyerName.trim(),
@@ -87,7 +87,6 @@ export class ChatService {
 
     const message = await this.messageModel.create({
       threadId: thread.threadId,
-      itemId: thread.itemId,
       senderEmail,
       senderName,
       receiverEmail,
@@ -114,8 +113,7 @@ export class ChatService {
     }
 
     return [
-      dto.itemId.trim().toLowerCase(),
-      this.normalizeEmail(dto.sellerEmail),
+      dto.sellerId.trim().toLowerCase(),
       this.normalizeEmail(dto.buyerEmail),
     ].join('__');
   }

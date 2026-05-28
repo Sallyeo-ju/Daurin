@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
+import { Address, AddressSchema } from './address.schema';
 
 export type UserDocument = HydratedDocument<User>;
 
@@ -25,6 +26,12 @@ export class User {
 
   @Prop({ required: false })
   photoUrl?: string;
+
+  @Prop({ required: false })
+  profilePictureUrl?: string;
+
+  @Prop({ type: [AddressSchema], default: [] })
+  addresses!: Address[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

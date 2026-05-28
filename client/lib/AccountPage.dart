@@ -55,6 +55,7 @@ class AccountPage extends StatelessWidget {
     required this.onLogout,
     required this.onEditProfile,
     required this.onChangePassword,
+    required this.onManageAddresses,
     required this.onAboutUs,
     required this.onFaq,
     required this.vouchers,
@@ -63,6 +64,7 @@ class AccountPage extends StatelessWidget {
     this.selectedVoucherCode,
     this.locationStatus = '',
     this.locationText = '',
+    this.profilePictureUrl,
   });
 
   final String username;
@@ -73,6 +75,7 @@ class AccountPage extends StatelessWidget {
   final VoidCallback onLogout;
   final VoidCallback onEditProfile;
   final VoidCallback onChangePassword;
+  final VoidCallback onManageAddresses;
   final VoidCallback onAboutUs;
   final VoidCallback onFaq;
   final List<Voucher> vouchers;
@@ -81,102 +84,7 @@ class AccountPage extends StatelessWidget {
   final String? selectedVoucherCode;
   final String locationStatus;
   final String locationText;
-
-  void _showAccountMenu(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        var darkModeValue = isDarkMode;
-        return StatefulBuilder(
-          builder: (ctx, setState) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SwitchListTile.adaptive(
-                      value: darkModeValue,
-                      onChanged: (v) {
-                        setState(() => darkModeValue = v);
-                        onToggleDarkMode(v);
-                      },
-                      title: const Text('Dark Mode'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.confirmation_number_outlined),
-                      title: const Text('Voucher Diskon'),
-                      subtitle: const Text('Lihat dan pakai voucher aktif'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        _showVoucherSheet(context);
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.my_location),
-                      title: const Text('Detect Location'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        onDetectLocation();
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.edit),
-                      title: const Text('Edit Profile'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        onEditProfile();
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.lock),
-                      title: const Text('Change Password'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        onChangePassword();
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.info_outline),
-                      title: const Text('About Us'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        onAboutUs();
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.help_outline),
-                      title: const Text('FAQ'),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        onFaq();
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () {
-                          Navigator.of(sheetContext).pop();
-                          onLogout();
-                        },
-                        icon: const Icon(Icons.logout),
-                        label: const Text('Logout'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+  final String? profilePictureUrl;
 
   void _showVoucherSheet(BuildContext context) {
     showModalBottomSheet<void>(
@@ -197,7 +105,7 @@ class AccountPage extends StatelessWidget {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                if (recommendedVoucher != null) ...[
+                if (recommendedVoucher != null) ...{
                   ListTile(
                     title: Text('Rekomendasi: ${recommendedVoucher!.title}'),
                     subtitle: Text(recommendedVoucher!.description),
@@ -209,7 +117,7 @@ class AccountPage extends StatelessWidget {
                     ),
                   ),
                   const Divider(),
-                ],
+                },
                 if (vouchers.isNotEmpty)
                   ...vouchers.map(
                     (v) => ListTile(
@@ -237,52 +145,132 @@ class AccountPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      margin: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 28,
-                  child: Text(
-                    username.isNotEmpty ? username[0].toUpperCase() : 'U',
+    return SingleChildScrollView(
+      child: Card(
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Profile Header
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundImage: profilePictureUrl != null &&
+                            profilePictureUrl!.isNotEmpty
+                        ? NetworkImage(profilePictureUrl!)
+                        : null,
+                    child: profilePictureUrl == null ||
+                            profilePictureUrl!.isEmpty
+                        ? Text(
+                            username.isNotEmpty ? username[0].toUpperCase() : 'U',
+                          )
+                        : null,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(username, style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 4),
-                      Text(email, style: theme.textTheme.bodySmall),
-                      if (locationStatus.isNotEmpty ||
-                          locationText.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          locationStatus.isNotEmpty
-                              ? '$locationStatus • $locationText'
-                              : locationText,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontSize: 12,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(username, style: theme.textTheme.titleMedium),
+                        const SizedBox(height: 4),
+                        Text(email, style: theme.textTheme.bodySmall),
+                        if (locationStatus.isNotEmpty ||
+                            locationText.isNotEmpty) ...{
+                          const SizedBox(height: 6),
+                          Text(
+                            locationStatus.isNotEmpty
+                                ? '$locationStatus • $locationText'
+                                : locationText,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
+                        },
                       ],
-                    ],
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Dark Mode Toggle
+              SwitchListTile.adaptive(
+                value: isDarkMode,
+                onChanged: onToggleDarkMode,
+                title: const Text('Dark Mode'),
+              ),
+              const Divider(),
+
+              // Voucher
+              ListTile(
+                leading: const Icon(Icons.confirmation_number_outlined),
+                title: const Text('Voucher Diskon'),
+                subtitle: const Text('Lihat dan pakai voucher aktif'),
+                onTap: () => _showVoucherSheet(context),
+              ),
+
+              // Detect Location
+              ListTile(
+                leading: const Icon(Icons.my_location),
+                title: const Text('Detect Location'),
+                onTap: onDetectLocation,
+              ),
+
+              // Edit Profile
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Edit Profile'),
+                subtitle: const Text('Ubah foto profil dan informasi'),
+                onTap: onEditProfile,
+              ),
+
+              // Change Password
+              ListTile(
+                leading: const Icon(Icons.lock),
+                title: const Text('Change Password'),
+                subtitle: const Text('Ubah password akun Anda'),
+                onTap: onChangePassword,
+              ),
+
+              // Manage Addresses
+              ListTile(
+                leading: const Icon(Icons.location_on),
+                title: const Text('Manage Addresses'),
+                subtitle: const Text('Kelola alamat pengiriman'),
+                onTap: onManageAddresses,
+              ),
+
+              // About Us
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('About Us'),
+                onTap: onAboutUs,
+              ),
+
+              // FAQ
+              ListTile(
+                leading: const Icon(Icons.help_outline),
+                title: const Text('FAQ'),
+                onTap: onFaq,
+              ),
+
+              const SizedBox(height: 16),
+
+              // Logout Button
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onLogout,
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Logout'),
                 ),
-                IconButton(
-                  onPressed: () => _showAccountMenu(context),
-                  icon: const Icon(Icons.more_vert),
-                ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );

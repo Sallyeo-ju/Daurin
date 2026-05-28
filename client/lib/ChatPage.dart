@@ -5,14 +5,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 
-/// Chat page that can use the backend thread when seller/buyer data is known.
-/// It falls back to a local-only thread if the remote thread cannot be resolved.
+/// Chat page that uses seller-based threading instead of product-based.
 class ChatPage extends StatefulWidget {
   const ChatPage({
     super.key,
     this.threadId,
-    this.itemId,
-    this.itemName,
+    this.sellerId,
+    this.sellerUsername,
     this.sellerName,
     this.sellerEmail,
     this.buyerName,
@@ -21,8 +20,8 @@ class ChatPage extends StatefulWidget {
   });
 
   final String? threadId;
-  final String? itemId;
-  final String? itemName;
+  final String? sellerId;
+  final String? sellerUsername;
   final String? sellerName;
   final String? sellerEmail;
   final String? buyerName;
@@ -57,7 +56,7 @@ class _ChatPageState extends State<ChatPage> {
 
   bool get _hasRemoteContext {
     return !widget.draftMode &&
-        (widget.itemId ?? '').trim().isNotEmpty &&
+        (widget.sellerId ?? '').trim().isNotEmpty &&
         (widget.sellerEmail ?? '').trim().isNotEmpty &&
         (widget.buyerEmail ?? '').trim().isNotEmpty;
   }
@@ -169,18 +168,18 @@ class _ChatPageState extends State<ChatPage> {
     final prefs = await SharedPreferences.getInstance();
     final senderName =
         prefs.getString('account_username')?.trim().isNotEmpty == true
-        ? prefs.getString('account_username')!.trim()
-        : (widget.buyerName?.trim().isNotEmpty == true
-              ? widget.buyerName!.trim()
-              : (widget.sellerName?.trim().isNotEmpty == true
+            ? prefs.getString('account_username')!.trim()
+            : (widget.buyerName?.trim().isNotEmpty == true
+                ? widget.buyerName!.trim()
+                : (widget.sellerName?.trim().isNotEmpty == true
                     ? widget.sellerName!.trim()
                     : 'User'));
     final senderEmail =
         prefs.getString('account_email')?.trim().isNotEmpty == true
-        ? prefs.getString('account_email')!.trim().toLowerCase()
-        : (widget.buyerEmail?.trim().isNotEmpty == true
-              ? widget.buyerEmail!.trim().toLowerCase()
-              : (widget.sellerEmail?.trim().isNotEmpty == true
+            ? prefs.getString('account_email')!.trim().toLowerCase()
+            : (widget.buyerEmail?.trim().isNotEmpty == true
+                ? widget.buyerEmail!.trim().toLowerCase()
+                : (widget.sellerEmail?.trim().isNotEmpty == true
                     ? widget.sellerEmail!.trim().toLowerCase()
                     : ''));
 
@@ -196,8 +195,8 @@ class _ChatPageState extends State<ChatPage> {
           path: '/chat/messages',
           body: jsonEncode({
             'threadId': _threadId,
-            'itemId': widget.itemId,
-            'itemName': widget.itemName,
+            'sellerId': widget.sellerId,
+            'sellerUsername': widget.sellerUsername,
             'sellerName': widget.sellerName,
             'sellerEmail': widget.sellerEmail,
             'buyerName': widget.buyerName,
@@ -256,9 +255,8 @@ class _ChatPageState extends State<ChatPage> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
-          crossAxisAlignment: isUser
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
+          crossAxisAlignment:
+              isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Text(message['text'] ?? '', style: TextStyle(color: textColor)),
             const SizedBox(height: 6),
@@ -277,7 +275,7 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.itemName ?? widget.sellerName ?? 'Chat';
+    final title = widget.sellerUsername ?? widget.sellerName ?? 'Chat';
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: Column(
@@ -294,7 +292,7 @@ class _ChatPageState extends State<ChatPage> {
                   border: Border.all(color: Colors.green.shade100),
                 ),
                 child: Text(
-                  'Chat tersambung ke penjual ${widget.sellerName ?? ''}'
+                  'Chat dengan penjual ${widget.sellerUsername ?? widget.sellerName ?? ''}'
                       .trim(),
                   style: TextStyle(color: Colors.green.shade800),
                 ),
